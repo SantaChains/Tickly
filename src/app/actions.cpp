@@ -211,14 +211,17 @@ void MultiDelete(const std::vector<int>& idxs) {
     ListRepaint();
 }
 
-static void DeleteSelected() {
+// v2.3.2：删除所选（Delete 键与右键菜单共用；多选时批量删除）
+void DeleteSelected() {
     if (!g_multiSel.empty()) {               // v0.16：多选时批量删除
         MultiDelete(g_multiSel);
         return;
     }
     if (g_selRow < 0 || g_selRow >= (int)g_rows.size() || g_rows[g_selRow] < 0) return;
     int idx = g_rows[g_selRow];
+    if (g_rowEditRow == g_selRow) CloseRowEditor(false);   // 正在编辑则先关编辑框
     g_tasks.erase(g_tasks.begin() + idx);
+    g_anchorRow = -1;
     SaveTasks();
     RebuildRows();
     UpdateButtons();

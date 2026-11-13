@@ -970,6 +970,9 @@ LRESULT CALLBACK TodoListProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             }
             return 0;
         }
+        case VK_DELETE:                      // v2.3.2：Delete 删除所选（多选批量删除）
+            DeleteSelected();
+            return 0;
         case VK_UP:
         case VK_LEFT:
             moveSel(g_selRow < 0 ? cnt - 1 : g_selRow - 1);

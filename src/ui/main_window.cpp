@@ -366,10 +366,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         COLORREF bg, tx, bd;
         if (primary) {
-            // v1.13.10：主按钮改用低饱和柔蓝 —— 原来直接铺 COL_ACCENT(#007AFF)，
-            // 大面积纯高饱和蓝在浅灰底上很扎眼；浅色降到 #3D7CE0（饱和度约
-            // 73%，明度略降），深色沿用 Apple 深色强调 #0A84FF（暗底不刺眼）
-            COLORREF base = g_themeDark ? RGB(10, 132, 255) : RGB(61, 124, 224);
+            // v1.13.10：主按钮不用整块纯强调色 —— 大面积高饱和色在浅灰底上
+            // 很扎眼；浅色下按强调色压暗 12% 作底，深色下直接用强调色。
+            // v2.3.2：底色由 COL_ACCENT 派生，换主题色时按钮自动跟随
+            COLORREF base = g_themeDark ? COL_ACCENT : DarkenColor(COL_ACCENT, 12);
             if (g_btnAddHot && !sel) base = DarkenColor(base, 6);   // 悬停略沉
             bg = sel ? DarkenColor(base, 12) : base;
             tx = COL_WHITE;

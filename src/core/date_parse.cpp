@@ -335,22 +335,22 @@ WhenResult ParseWhen(const std::wstring& in) {
         while (j < in.size() && in[j] == L' ') ++j;
         int h = DigitAt(in, j, 2);
         if (h < 0 || h > 23) { ++i; continue; }
-        int mi; bool hm = false;
+        int mi;
         if (j < in.size() && (in[j] == L':' || in[j] == L'：')) {
             ++j;
             int m = DigitAt(in, j, 2);
             if (m < 0 || m > 59) { ++i; continue; }
-            mi = m; hm = true;
+            mi = m;
         } else if (j < in.size() && (in[j] == L'点' || in[j] == L'时')) {
             ++j;
-            if (j < in.size() && in[j] == L'半') { mi = 30; ++j; hm = true; }
+            if (j < in.size() && in[j] == L'半') { mi = 30; ++j; }
             else {
                 size_t k = j;
                 int m = DigitAt(in, k, 2);
                 if (m >= 0 && m <= 59) {
                     j = k;
                     if (j < in.size() && in[j] == L'分') ++j;
-                    mi = m; hm = true;
+                    mi = m;
                 } else {
                     mi = 0;
                 }
@@ -362,8 +362,11 @@ WhenResult ParseWhen(const std::wstring& in) {
         switch (pft) {
             case P_EARLY: if (hh == 12) hh = 0; break;
             case P_NOON:  if (hh <= 2) hh += 12; break;
-            case P_PM: case P_TONIGHT: case P_TOM_NIGHT:
-                if (hh < 12) hh += 12; break;
+            case P_PM:
+            case P_TONIGHT:
+            case P_TOM_NIGHT:
+                if (hh < 12) hh += 12;
+                break;
             default: break;
         }
         if (hh > 23) { ++i; continue; }

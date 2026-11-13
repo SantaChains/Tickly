@@ -1,6 +1,7 @@
 // 内存对话框模板
 #include "common.h"
 #include "ui/dialogs_common.h"
+#include "ui/gdi_util.h"
 
 
 struct DlgBuf {
@@ -65,7 +66,7 @@ void GrowDialogToFitText(HWND h, int textId,
     ScreenToClient(h, &tp);
     POINT bp = { b0.left, b0.top };
     ScreenToClient(h, &bp);
-    int left = tp.x, top = tp.y;
+    int top = tp.y;
     int width = sr.right - sr.left;       // 保持模板宽度不变，只修高度
     if (forEdit)   // v0.21：EDIT 文字区比窗口窄（边框+内边距+垂直滚动条）
         width -= 8 + GetSystemMetrics(SM_CXVSCROLL);
@@ -112,4 +113,86 @@ void GrowDialogToFitText(HWND h, int textId,
         SetWindowPos(bh, nullptr, p.x, newBtnTop, 0, 0,
                      SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
     }
+}
+
+// v2.3.2：模板宽度按 9pt 估算，长标签在非 100% 缩放下会被自己的控件宽度截断。
+// 这里在对话框初始化时用控件当前字体实测文本宽度，必要时加宽控件；控件右边界
+// 顶到对话框边时同步加宽对话框，并让底部按钮组按增量一半右移，保持视觉居中。
+void FitControlTextWidth(HWND h, const std::vector<int>& ids,
+                                const DlgBtnIds& centerIds, int margin) {
+    if (ids.empty()) return;
+    HDC dc = GetDC(h);
+    if (!dc) return;
+    struct Fix { HWND wnd; int need; };
+    std::vector<Fix> fixes;
+    RECT cr {};
+    GetClientRect(h, &cr);
+    const int clientW = (int)(cr.right - cr.left);
+    int grow = 0;
+    for (int id : ids) {
+        HWND c = GetDlgItem(h, id);
+        if (!c) continue;
+        int len = GetWindowTextLengthW(c);
+        if (len <= 0) continue;
+        std::wstring txt((size_t)len + 1, L'\0');
+        GetWindowTextW(c, &txt[0], len + 1);
+        txt.resize((size_t)len);
+        HFONT f = (HFONT)SendMessageW(c, WM_GETFONT, 0, 0);
+        HGDIOBJ of = SelectObject(dc, f ? (HGDIOBJ)f
+                                        : GetStockObject(DEFAULT_GUI_FONT));
+        RECT tr {};
+        DrawTextW(dc, txt.c_str(), -1, &tr,
+                  DT_CALCRECT | DT_SINGLELINE | DT_NOPREFIX);
+        TEXTMETRICW tm {};
+        GetTextMetricsW(dc, &tm);
+        SelectObject(dc, of);
+        int need = (int)(tr.right - tr.left) + Scale(6);
+        const LONG_PTR st = GetWindowLongPtrW(c, GWL_STYLE);
+        if ((st & BS_TYPEMASK) == BS_OWNERDRAW)   // 自绘勾选框：文字前留方框
+            need += tm.tmHeight + tm.tmHeight / 2;
+        RECT r {};
+        GetWindowRect(c, &r);
+        POINT lt { r.left, r.top }, rb { r.right, r.bottom };
+        ScreenToClient(h, &lt);
+        ScreenToClient(h, &rb);
+        const int w = (int)(rb.x - lt.x);
+        if (need <= w) continue;
+        fixes.push_back({ c, need });
+        int overflow = (int)rb.x + (need - w) - (clientW - Scale(margin));
+        if (overflow > grow) grow = overflow;
+    }
+    ReleaseDC(h, dc);
+    if (fixes.empty()) return;
+    if (grow > 0) {
+        RECT wr {};
+        GetWindowRect(h, &wr);
+        SetWindowPos(h, nullptr, 0, 0, (int)(wr.right - wr.left) + grow,
+                     (int)(wr.bottom - wr.top),
+                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        for (int id : centerIds) {
+            HWND b = GetDlgItem(h, id);
+            if (!b) continue;
+            RECT br {};
+            GetWindowRect(b, &br);
+            POINT p { br.left, br.top };
+            ScreenToClient(h, &p);
+            SetWindowPos(b, nullptr, (int)p.x + grow / 2, (int)p.y, 0, 0,
+                         SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        GetClientRect(h, &cr);
+    }
+    for (const Fix& fx : fixes) {
+        RECT r {};
+        GetWindowRect(fx.wnd, &r);
+        POINT lt { r.left, r.top }, rb { r.right, r.bottom };
+        ScreenToClient(h, &lt);
+        ScreenToClient(h, &rb);
+        int w = fx.need;
+        const int maxW = (int)(cr.right - Scale(margin)) - (int)lt.x;
+        if (w > maxW) w = maxW;
+        if (w <= (int)(rb.x - lt.x)) continue;
+        SetWindowPos(fx.wnd, nullptr, 0, 0, w, (int)(rb.y - lt.y),
+                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+    InvalidateRect(h, nullptr, TRUE);
 }

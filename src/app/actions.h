@@ -12,6 +12,8 @@ bool HeaderExportHit(int grp, const RECT& ir, int x);
 
 void DeleteTaskAt(int row);
 
+void DeleteSelected();
+
 void AddFromInput();
 
 void ToggleTask(int row);

@@ -24,25 +24,24 @@ COLORREF g_dtFontCol    = RGB(110, 110, 115); // v0.26 日期时间字体颜色�
 // ---------------------------- 配色 ------------------------------------------
 // v0.27 主题引擎：COL_* 由编译期常量改为运行时变量，Light/Dark 两套常量
 // 色板表（kPalLight/kPalDark）由 ApplyTheme() 按当前模式整表拷贝。
-// Light 色板与 v0.26 逐值一致（浅色模式除 C 层四项视觉外零变化）：
-// 强调色 #007AFF、深蓝 #0062CC、错误红 #FF3B30、正文 #1D1D1F、
-// 次要文字 #6E6E73、分隔线 #E5E5EA、背景 #F2F2F7、选中浅灰 #EEEEEE；
-// Dark 色板为 Apple 深色风（BG #1C1C1E、内容卡 #2C2C2E、强调 #0A84FF…）
-COLORREF COL_ACCENT   = RGB(0, 122, 255);    // Apple 蓝 #007AFF
-COLORREF COL_HIGHLIGHT= RGB(0, 98, 204);     // 深蓝（今天/识别提示）
-COLORREF COL_OVERDUE  = RGB(255, 59, 48);    // Apple 红 #FF3B30
+// v2.3.2：主色由 Apple 蓝改为与 assets/app.ico 同源的微信绿（#07C160），
+// 浅色中性底改暖中带冷的 #F5F6F7，深色底压到 #1A1C1E；逾期红同步换成
+// 微信红 #FA5151，避免高饱和纯红在浅灰底上跳。
+COLORREF COL_ACCENT   = RGB(7, 193, 96);     // 微信绿 #07C160
+COLORREF COL_HIGHLIGHT= RGB(6, 160, 80);     // 深绿（今天/识别提示）
+COLORREF COL_OVERDUE  = RGB(250, 81, 81);    // 微信红 #FA5151
 COLORREF COL_TEXT     = RGB(29, 29, 31);     // Apple label #1D1D1F
-COLORREF COL_MUTED    = RGB(110, 110, 115);  // secondary #6E6E73
+COLORREF COL_MUTED    = RGB(112, 116, 120);  // secondary #707478
 COLORREF COL_DONE     = RGB(174, 174, 178);  // 运行时派生（见 ApplyTheme）
-COLORREF COL_GRP_CNT  = RGB(174, 174, 178);  // v0.22 分组计数弱化灰（#AEAEB2）
-COLORREF COL_BORDER   = RGB(229, 229, 234);  // separator #E5E5EA
-COLORREF COL_BOX_BD   = RGB(209, 209, 214);  // #D1D1D6
-COLORREF COL_BG       = RGB(242, 242, 247);  // systemGray6 #F2F2F7
-COLORREF COL_SEL_BG   = RGB(238, 238, 238);  // v0.26 选中浅灰底 #EEEEEE
-COLORREF COL_WHITE    = RGB(255, 255, 255);  // 内容卡面 #FFFFFF（深色 #2C2C2E）
-COLORREF COL_SB       = RGB(193, 198, 206);  // v1.13.0 滚动条
-COLORREF COL_SB_HOT   = RGB(157, 163, 172);  // 滚动条悬停/拖动
-COLORREF COL_HOVER_BG = RGB(242, 242, 247);  // v0.27 整行悬停底色（随主题）
+COLORREF COL_GRP_CNT  = RGB(163, 168, 174);  // 分组计数弱化灰 #A3A8AE
+COLORREF COL_BORDER   = RGB(230, 232, 235);  // separator #E6E8EB
+COLORREF COL_BOX_BD   = RGB(211, 214, 218);  // #D3D6DA
+COLORREF COL_BG       = RGB(245, 246, 247);  // 中性底 #F5F6F7
+COLORREF COL_SEL_BG   = RGB(232, 245, 238);  // 选中浅绿底 #E8F5EE
+COLORREF COL_WHITE    = RGB(255, 255, 255);  // 内容卡面 #FFFFFF（深色 #232629）
+COLORREF COL_SB       = RGB(198, 203, 209);  // v1.13.0 滚动条
+COLORREF COL_SB_HOT   = RGB(155, 162, 170);  // 滚动条悬停/拖动
+COLORREF COL_HOVER_BG = RGB(241, 243, 245);  // v0.27 整行悬停底色（随主题）
 
 // ---------------------------- 主题引擎（v0.27 B 层） ------------------------
 // 三态模式：0 = 浅色，1 = 深色，2 = 跟随系统（默认）；g_themeDark 为解析后
@@ -58,39 +57,39 @@ struct ThemePalette {
     COLORREF accent, highlight, overdue, text, muted, grpCnt,
              border, boxBd, bg, selBg, card, sb, sbHot, hoverBg;
 };
-// Light：与 v0.26 各常量逐值一致
+// Light：v2.3.2 微信绿
 static const ThemePalette kPalLight = {
-    RGB(0, 122, 255),    // accent    #007AFF
-    RGB(0, 98, 204),     // highlight #0062CC
-    RGB(255, 59, 48),    // overdue   #FF3B30
+    RGB(7, 193, 96),     // accent    #07C160
+    RGB(6, 160, 80),     // highlight #06A050
+    RGB(250, 81, 81),    // overdue   #FA5151
     RGB(29, 29, 31),     // text      #1D1D1F
-    RGB(110, 110, 115),  // muted     #6E6E73
-    RGB(174, 174, 178),  // grpCnt    #AEAEB2
-    RGB(229, 229, 234),  // border    #E5E5EA
-    RGB(209, 209, 214),  // boxBd     #D1D1D6
-    RGB(242, 242, 247),  // bg        #F2F2F7
-    RGB(238, 238, 238),  // selBg     #EEEEEE（v0.26 选中色）
+    RGB(112, 116, 120),  // muted     #707478
+    RGB(163, 168, 174),  // grpCnt    #A3A8AE
+    RGB(230, 232, 235),  // border    #E6E8EB
+    RGB(211, 214, 218),  // boxBd     #D3D6DA
+    RGB(245, 246, 247),  // bg        #F5F6F7
+    RGB(232, 245, 238),  // selBg     #E8F5EE（选中行的淡绿底）
     RGB(255, 255, 255),  // card      #FFFFFF
-    RGB(193, 198, 206),  // sb        #C1C6CE
-    RGB(157, 163, 172),  // sbHot     #9DA3AC
-    RGB(242, 242, 247),  // hoverBg   #F2F2F7（白底行上的淡灰悬停）
+    RGB(198, 203, 209),  // sb        #C6CBD1
+    RGB(155, 162, 170),  // sbHot     #9BA2AA
+    RGB(241, 243, 245),  // hoverBg   #F1F3F5（白底行上的淡灰悬停）
 };
-// Dark：Apple 深色风
+// Dark：微信绿深色
 static const ThemePalette kPalDark = {
-    RGB(10, 132, 255),   // accent    #0A84FF
-    RGB(64, 156, 255),   // highlight #409CFF
-    RGB(255, 69, 58),    // overdue   #FF453A
-    RGB(242, 242, 247),  // text      #F2F2F7
-    RGB(152, 152, 159),  // muted     #98989F
-    RGB(99, 99, 102),    // grpCnt    #636366
-    RGB(58, 58, 60),     // border    #3A3A3C
-    RGB(72, 72, 74),     // boxBd     #48484A
-    RGB(28, 28, 30),     // bg        #1C1C1E
-    RGB(58, 58, 60),     // selBg     #3A3A3C
-    RGB(44, 44, 46),     // card      #2C2C2E
-    RGB(90, 90, 94),     // sb        #5A5A5E
-    RGB(124, 124, 130),  // sbHot     #7C7C82
-    RGB(51, 51, 54),     // hoverBg   #333336
+    RGB(43, 213, 116),   // accent    #2BD574
+    RGB(86, 217, 143),   // highlight #56D98F
+    RGB(255, 107, 107),  // overdue   #FF6B6B
+    RGB(236, 237, 238),  // text      #ECEDEE
+    RGB(154, 160, 166),  // muted     #9AA0A6
+    RGB(108, 113, 120),  // grpCnt    #6C7178
+    RGB(52, 55, 59),     // border    #34373B
+    RGB(69, 73, 78),     // boxBd     #45494E
+    RGB(26, 28, 30),     // bg        #1A1C1E
+    RGB(38, 48, 43),     // selBg     #26302B（深色下的淡绿选中底）
+    RGB(35, 38, 41),     // card      #232629
+    RGB(76, 81, 87),     // sb        #4C5157
+    RGB(119, 125, 132),  // sbHot     #777D84
+    RGB(40, 43, 46),     // hoverBg   #282B2E
 };
 
 // 线性混色：Mix(a, b, t) = a*(1-t) + b*t（四舍五入）

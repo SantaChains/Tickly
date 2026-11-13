@@ -71,13 +71,13 @@ void CloseRowEditor(bool save) {
     if (g_input) SetFocus(g_input);
 }
 
-// ---------------------------- 蓝色光标（自绘 caret，v1.13.1） -----------------
+// ---------------------------- 强调色光标（自绘 caret，v1.13.1） -----------------
 // Win32 的 EDIT 光标颜色取自系统设置（默认黑），没有可改色的公开 API：
 // CreateCaret 的位图是单色掩码（只能「反色 / 屏幕色」），SPI_SETCARETWIDTH 只
-// 管宽度。这里隐藏系统光标，在插入点位置自绘一条强调蓝竖线，定时器维持
-// 530ms 的闪烁节奏（与系统光标速率一致）。竖线随控件重绘重新落位，因此
-// 每次相位切换都整框重绘一次 —— 编辑框只有几行文字，代价可忽略。
-static const COLORREF kCaretCol = RGB(0, 122, 255);   // 与 COL_ACCENT 同源
+// 管宽度。这里隐藏系统光标，在插入点位置自绘一条强调色竖线（v2.3.2 起跟随
+// COL_ACCENT），定时器维持 530ms 的闪烁节奏（与系统光标速率一致）。竖线随控件
+// 重绘重新落位，因此每次相位切换都整框重绘一次 —— 编辑框只有几行文字，
+// 代价可忽略。
 static HWND     g_caretHwnd  = nullptr;   // 当前接管光标的编辑框
 static UINT_PTR g_caretTimer = 0;         // 闪烁定时器（编辑框内 id 3）
 static bool     g_caretOn    = true;      // 闪烁相位
@@ -234,7 +234,7 @@ void PaintBlueCaret(HWND h) {
     g_caretMiss = 0;
     HDC hdc = GetDC(h);
     if (hdc) {
-        FillRect(hdc, &r, CachedBrush(kCaretCol));
+        FillRect(hdc, &r, CachedBrush(COL_ACCENT));
         ReleaseDC(h, hdc);
     }
     g_caretLast = r;      // v1.13.15：记录「已经画在屏幕上的位置」，下一帧据此擦除

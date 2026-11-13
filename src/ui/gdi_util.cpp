@@ -79,17 +79,23 @@ static HFONT MakeFontBold(int pxHeight) {   // 真加粗（FW_BOLD），提醒�
 void CreateUiResources() {
     HFONT nf;
     nf = MakeFont(20, true);        // 标题
-    if (g_fontTitle)   DeleteObject(g_fontTitle);   g_fontTitle   = nf;
+    if (g_fontTitle) DeleteObject(g_fontTitle);
+    g_fontTitle = nf;
     nf = MakeFont(12);              // 副标题
-    if (g_fontSub)     DeleteObject(g_fontSub);     g_fontSub     = nf;
+    if (g_fontSub) DeleteObject(g_fontSub);
+    g_fontSub = nf;
     nf = MakeFontBold(17);          // 提醒弹窗正文
-    if (g_fontRemindT) DeleteObject(g_fontRemindT); g_fontRemindT = nf;
+    if (g_fontRemindT) DeleteObject(g_fontRemindT);
+    g_fontRemindT = nf;
     nf = MakeFontBold(13);          // 提醒弹窗按钮
-    if (g_fontRemindB) DeleteObject(g_fontRemindB); g_fontRemindB = nf;
+    if (g_fontRemindB) DeleteObject(g_fontRemindB);
+    g_fontRemindB = nf;
     nf = MakeFontBold(15);          // v1.12.1：气泡标题（加大加粗）
-    if (g_fontToastT)  DeleteObject(g_fontToastT);  g_fontToastT  = nf;
+    if (g_fontToastT) DeleteObject(g_fontToastT);
+    g_fontToastT = nf;
     nf = MakeFont(14);              // v1.12.1：气泡正文（加大）
-    if (g_fontToastB)  DeleteObject(g_fontToastB);  g_fontToastB  = nf;
+    if (g_fontToastB) DeleteObject(g_fontToastB);
+    g_fontToastB = nf;
     // 对勾几何笔：宽度随 DPI（Scale(2)），颜色固定白色
     if (g_penCheck) DeleteObject(g_penCheck);
     LOGBRUSH lb { BS_SOLID, COL_WHITE, 0 };

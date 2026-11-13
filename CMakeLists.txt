@@ -139,8 +139,10 @@ else()
   #         DPI 清单冲突（multiple non-default manifests）
   target_link_options(Tickly PRIVATE -municode -mwindows -static
     "-specs=${CMAKE_CURRENT_SOURCE_DIR}/cmake/mingw64.specs")
-  set_source_files_properties(assets/resource.rc PROPERTIES
-    COMPILE_OPTIONS "--codepage=65001")
-  set_source_files_properties(assets/manifest.rc PROPERTIES
-    COMPILE_OPTIONS "--codepage=65001")
+  # 代码页由 .rc 文件自己的 #pragma code_page(65001) 声明，不再传 --codepage：
+  # 那是 windres 专有参数。LLVM 在 PATH 时 CMake 会选中 llvm-rc，它不认
+  # #pragma、要用 /C 指定输入代码页，否则 VERSIONINFO 里的中文直接解析失败。
+  if(CMAKE_RC_COMPILER MATCHES "llvm-rc")
+    string(APPEND CMAKE_RC_FLAGS " /C65001")
+  endif()
 endif()

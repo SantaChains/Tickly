@@ -27,3 +27,8 @@ DLGTEMPLATE* BuildDialog(const wchar_t* title, int cx, int cy,
 void GrowDialogToFitText(HWND h, int textId,
                                 const std::vector<int>& btnIds,
                                 int maxTextH = 0, bool forEdit = false);
+
+// v2.3.2：按实际字体测量指定控件文本宽度，过窄则加宽控件；超出对话框右边界
+// 时同步加宽对话框，并把 centerIds 里的按钮按增量一半右移保持居中。
+void FitControlTextWidth(HWND h, const std::vector<int>& ids,
+                                const DlgBtnIds& centerIds, int margin = 8);

@@ -31,6 +31,7 @@ static const int IDC_SW_DT       = 2112; // v0.26 日期时间字体颜色色块
 static const int IDC_RB_THEME_L  = 2113; // v0.27 外观：浅色
 static const int IDC_RB_THEME_D  = 2114; // v0.27 外观：深色
 static const int IDC_RB_THEME_S  = 2115; // v0.27 外观：跟随系统（默认）
+static const int IDC_LB_MIN      = 2118; // v2.3.2 提醒说明长标签（运行期测宽）
 
 // ---------------------------- 设置对话框：自绘复选/单选（v2.3） --------------
 // 为什么不用系统控件：带视觉样式（comctl32 v6）后，复选框/单选钮的**文字颜色**
@@ -227,6 +228,9 @@ static INT_PTR CALLBACK SettingsDlgProc(HWND h, UINT m, WPARAM w, LPARAM lParam)
         RepaintChoiceCtrls(h);   // v2.3：状态已写入，让自绘控件按最新勾选重画
         // 深色模式下把系统控件（编辑框 / DTP / 快捷键采集框）和标题栏一起切深
         DarkModeApplyToWindow(h);
+        // v2.3.2：长标签与托盘选项按实际字体测宽，非 100% 缩放下不再被截断
+        FitControlTextWidth(h, { IDC_LB_MIN, IDC_CK_TRAYRUN },
+                            { IDOK, IDCANCEL }, 8);
         return TRUE;
     case WM_CTLCOLORSTATIC: {
         // v1.13.0：字体颜色色块用当前颜色画刷填充
@@ -400,7 +404,7 @@ void OpenSettings() {
         { WS_CHILD|WS_VISIBLE|WS_TABSTOP|WS_BORDER|ES_AUTOHSCROLL|ES_NUMBER,
           42, 29,  34, 12, (WORD)IDC_ED_MIN, CLS_EDIT, L"15" },
         { WS_CHILD|WS_VISIBLE|SS_LEFT,
-          82, 31, 136, 10, 100, CLS_STATIC, L"分钟后提醒（0 = 到点即提醒）" },
+          82, 31, 136, 10, (WORD)IDC_LB_MIN, CLS_STATIC, L"分钟后提醒（0 = 到点即提醒）" },
         { WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,
           12, 49, 206, 10, (WORD)IDC_CK_AUTORUN, CLS_BUTTON, L"开机自动启动" },
         { WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,

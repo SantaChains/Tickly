@@ -39,11 +39,6 @@ long long TodayMidnight() {
     return MakeEpoch(n.tm_year + 1900, n.tm_mon + 1, n.tm_mday, 0, 0);
 }
 
-static bool IsToday(long long due) {
-    if (!due) return false;
-    return due >= TodayMidnight() && due < TodayMidnight() + 86400;
-}
-
 // 本周一 00:00（中国习惯：周一为一周开始）
 long long ThisWeekStart() {
     tm n = LocalTmOf((long long)time(nullptr));

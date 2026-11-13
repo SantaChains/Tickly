@@ -95,8 +95,7 @@ src/
 
 assets/               图标 app.ico、清单 app.manifest、资源脚本 resource.rc / manifest.rc
 cmake/                mingw 链接 specs（去掉默认清单，避免与 app.manifest 冲突）
-tools/                图标生成（make-icon.ps1）与杂项脚本
-web/                  早期 HTML 原型，与程序运行无关
+tools/                图标生成（make-icon.ps1）与变更记录归档（archive-changelog.ps1）
 ```
 
 分层约定：
@@ -117,6 +116,10 @@ web/                  早期 HTML 原型，与程序运行无关
 
 CMake 在配置阶段校验三者一致，不一致直接失败；CI 也会重新校验图标 ID 与
 内嵌清单（用 `LoadIcon(1)` 真实取一次图标）。
+
+发版后把新版本的 `## vX.Y.Z` 段落写在 `CHANGELOG.md` 顶部，再运行
+`powershell -File tools/archive-changelog.ps1`：旧版本按原顺序移入
+`CHANGELOG.old`，`CHANGELOG.md` 始终只留最新一段。
 
 ## 数据文件（v4）
 
@@ -193,11 +196,3 @@ T	done	doneAt	due	hasTime	notified	text   任务（text 末尾，可含转义换
 powershell -File tools/make-icon.ps1 -Preview build/icon-preview.png   # 生成 ICO
 powershell -File build/_refactor/icon-verify.ps1                       # 结构/尺寸/纯色采样
 ```
-
-## 已知问题（非本次重构引入）
-
-- 设置对话框里「分钟后提醒（0 = 到点即提醒）」等长标签在高 DPI 下会被自己的
-  控件宽度截断（模板宽度按 9pt 估算，标签文本更宽）。
-- clang-cl 报 5 条 dead-code 警告：`IsToday` / `DeleteSelected` 未被调用、
-  `dialogs_common.cpp` 的 `left`、`reminder` 的 lambda 捕获 `g`、`hm` 未使用。
-- `tools/changeColor.cpp` 是历史片段（文件作用域裸循环），不参与构建。

@@ -148,7 +148,7 @@ void RebuildRows() {
     if (!g_doneCollapsed) {
         for (int g = 0; g < 5; ++g) {
             std::stable_sort(buckets[g].begin(), buckets[g].end(),
-                [g](int a, int b) {
+                [](int a, int b) {
                     return g_tasks[(size_t)a].doneAt > g_tasks[(size_t)b].doneAt;
                 });
             g_rows.push_back(-(g + 1));   // 分组标题行（展开后空分组也显示）

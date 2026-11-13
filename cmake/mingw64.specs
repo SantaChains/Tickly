@@ -1,0 +1,11 @@
+# mingw-w64 默认会在链接末尾加上 lib/default-manifest.o（gcc endfile spec:
+#   %:if-exists(default-manifest.o%s)
+# 它自带一份 RT_MANIFEST（id 1）。我们的 assets/resource.rc 里也登记了
+# RT_MANIFEST（app.manifest，PerMonitorV2 DPI 感知），两份 non-default
+# manifest 会让 ld 直接失败：
+#   ld.exe: .rsrc merge failure: multiple non-default manifests
+#
+# 这里覆盖 endfile 段，去掉 default-manifest.o，只保留我们自己打进 exe 的
+# 清单。其余段（crt2u.o / crtbegin / crtend 等）沿用 gcc 内置定义。
+*endfile:
+%{mdaz-ftz:crtfastmath.o%s;Ofast|ffast-math|funsafe-math-optimizations:%{!shared:%{!mno-daz-ftz:crtfastmath.o%s}}} %{fvtable-verify=none:%s;fvtable-verify=preinit:vtv_end.o%s;fvtable-verify=std:vtv_end.o%s} crtend.o%s

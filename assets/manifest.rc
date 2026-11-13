@@ -1,0 +1,7 @@
+// DPI 感知清单的资源包装：只给 mingw-w64（windres）用。
+// MSVC 由 CMake 把 assets/app.manifest 作为 manifest 输入交给 link.exe
+//（/MANIFESTINPUT），不走 .rc —— 否则会与 CMake 自动 /MANIFEST:EMBED
+// 产生的清单重复（CVT1100: 资源重复 MANIFEST）。
+#include <windows.h>
+
+1 24 "app.manifest"

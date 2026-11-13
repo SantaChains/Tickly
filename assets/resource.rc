@@ -1,5 +1,5 @@
 // ============================================================================
-//  Windows 资源脚本 —— 图标与清单都必须在这里登记，否则 exe 会「没图标 + 文字糊」
+//  Windows 资源脚本 —— 图标 / 版本信息（清单见 app.manifest 与 manifest.rc）
 //
 //  1) 图标：**必须是数值 ID 1**
 //     源码里取图标用的是 LoadIconW(hInst, MAKEINTRESOURCEW(1)) 与
@@ -8,19 +8,22 @@
 //     MAKEINTRESOURCE(32512)，资源就被登记在 32512 名下，运行时按 1 找不到，
 //     于是回退成系统默认白板图标 —— 看上去就是「打包后没有图标」。
 //
-//  2) 清单（RT_MANIFEST = 24）：声明 DPI 感知
-//     缺它时进程是 DPI 不感知的，在 125%/150% 缩放下 Windows 先把窗口按
-//     96 DPI 画好、再整幅位图拉伸，文字边缘必然发虚。
+//  2) 版本信息：FileVersion / ProductVersion 需与源码里的版本号同步
+//     （唯一来源 src/app/version.h，CMake 配置阶段会校验）。
 //
-//  3) 版本信息：FileVersion / ProductVersion 需与源码里的版本号同步
+//  3) DPI 感知清单（RT_MANIFEST = 24）不在本文件里：
+//     缺清单时进程是 DPI 不感知的，125%/150% 缩放下 Windows 先把窗口按
+//     96 DPI 画好再整幅位图拉伸，文字边缘发虚。
+//     MSVC：CMake 把 assets/app.manifest 交给 link.exe（/MANIFESTINPUT）；
+//     mingw：由 assets/manifest.rc 包成资源 —— 各工具链的原生注入方式。
 // ============================================================================
 #include <windows.h>
 
+// 本文件是 UTF-8：显式声明代码页，rc.exe / windres 都按 UTF-8 解析中文
+#pragma code_page(65001)
+
 // ---- 应用图标（窗口标题栏、任务栏、exe 文件图标、托盘共用）----
 1 ICON "app.ico"
-
-// ---- DPI 感知清单 ----
-1 24 "app.manifest"
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     2,3,1,0

@@ -21,6 +21,43 @@ static void AfterMutation() {
     RebuildRows();
 }
 
+// ---------------------------- 撤销 ------------------------------------------
+// 只记录删除类操作（单条 / 批量 / 清除已完成）：它们的共同点是「数据消失」，
+// 一旦误触无法靠界面找回。完成/还原、改日期都能再点一次复原，不入栈。
+// 每层保存被删任务的原始下标，撤销时按下标升序插回，位置与删除前一致。
+struct UndoOp {
+    std::vector<std::pair<int, Task>> removed;
+};
+
+static std::vector<UndoOp> s_undo;
+static const size_t kUndoDepth = 20;
+
+static void PushUndo(std::vector<std::pair<int, Task>>&& removed) {
+    if (removed.empty()) return;
+    s_undo.push_back(UndoOp { std::move(removed) });
+    if (s_undo.size() > kUndoDepth) s_undo.erase(s_undo.begin());
+}
+
+bool HasUndo() { return !s_undo.empty(); }
+
+void UndoLast() {
+    if (s_undo.empty()) return;
+    UndoOp op = std::move(s_undo.back());
+    s_undo.pop_back();
+    std::sort(op.removed.begin(), op.removed.end(),
+              [](const auto& a, const auto& b) { return a.first < b.first; });
+    for (auto& it : op.removed) {
+        int idx = it.first;
+        if (idx < 0) idx = 0;
+        if (idx > (int)g_tasks.size()) idx = (int)g_tasks.size();
+        g_tasks.insert(g_tasks.begin() + idx, std::move(it.second));
+    }
+    g_multiSel.clear();
+    g_selRow    = -1;
+    g_anchorRow = -1;
+    AfterMutation();
+}
+
 
 // 导出分组内全部任务为 txt：每个任务一行（按完成时间倒序，与界面显示一致）
 void ExportGroup(int grp) {
@@ -85,6 +122,7 @@ void DeleteTaskAt(int row) {
     if (row < 0 || row >= (int)g_rows.size() || g_rows[row] < 0) return;
     int idx = g_rows[row];
     if (g_rowEditRow == row) CloseRowEditor(false);  // 正在编辑则先关编辑框
+    PushUndo({ { idx, g_tasks[(size_t)idx] } });
     g_tasks.erase(g_tasks.begin() + idx);
     AfterMutation();
 }
@@ -195,6 +233,11 @@ void MultiDelete(const std::vector<int>& idxs) {
     if (idxs.empty()) return;
     std::vector<int> ids = idxs;
     std::sort(ids.begin(), ids.end(), [](int a, int b) { return a > b; });
+    std::vector<std::pair<int, Task>> removed;
+    for (int i : ids)
+        if (i >= 0 && i < (int)g_tasks.size())
+            removed.emplace_back(i, g_tasks[(size_t)i]);
+    PushUndo(std::move(removed));
     for (int i : ids)
         if (i >= 0 && i < (int)g_tasks.size())
             g_tasks.erase(g_tasks.begin() + i);
@@ -213,14 +256,19 @@ void DeleteSelected() {
     if (g_selRow < 0 || g_selRow >= (int)g_rows.size() || g_rows[g_selRow] < 0) return;
     int idx = g_rows[g_selRow];
     if (g_rowEditRow == g_selRow) CloseRowEditor(false);   // 正在编辑则先关编辑框
+    PushUndo({ { idx, g_tasks[(size_t)idx] } });
     g_tasks.erase(g_tasks.begin() + idx);
     g_anchorRow = -1;
     AfterMutation();
 }
 
 void ClearDone() {
+    std::vector<std::pair<int, Task>> removed;
     for (int i = (int)g_tasks.size() - 1; i >= 0; --i) {
-        if (g_tasks[(size_t)i].done) g_tasks.erase(g_tasks.begin() + i);
+        if (!g_tasks[(size_t)i].done) continue;
+        removed.emplace_back(i, g_tasks[(size_t)i]);
+        g_tasks.erase(g_tasks.begin() + i);
     }
+    PushUndo(std::move(removed));
     AfterMutation();
 }

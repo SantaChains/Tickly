@@ -13,6 +13,7 @@
 #include "ui/toast.h"
 #include "ui/main_window.h"
 #include "ui/autostart.h"
+#include "app/ids.h"
 
 
 // ---------------------------- 入口 ------------------------------------------
@@ -27,17 +28,22 @@ int APIENTRY wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR lpCmdLine, int nCmdShow)
     EnableDpiAwareness();
 
     // 单实例：同一时刻只允许一个 Tickly 进程。重复双击 exe 时不再启动
-    // 第二个副本，而是直接唤起已运行的窗口（还原/显示并置前），同微信/QQ
+    // 第二个副本，而是唤起已运行的窗口（还原/显示并置前），同微信/QQ
     HANDLE hMutex = CreateMutexW(nullptr, TRUE,
                                  L"Local\\Tickly_8F3C_SingleInstance");
     if (hMutex && GetLastError() == ERROR_ALREADY_EXISTS) {
-        HWND prev = FindWindowW(L"TicklyClass", nullptr);
-        if (prev) {
-            if (IsIconic(prev))              ShowWindow(prev, SW_RESTORE);
-            else if (!IsWindowVisible(prev)) ShowWindow(prev, SW_SHOW);
-            SetWindowPos(prev, HWND_TOP, 0, 0, 0, 0,
-                         SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
-            SetForegroundWindow(prev);
+        // 开机自启那一路不抢焦点：登录时已有实例在跑，静默退出即可
+        if (!startHidden) {
+            // Windows 前台锁：刚被用户点击的进程才持有「可设前台」权限，
+            // 把它转授出去，已运行实例的 SetForegroundWindow 才不会只闪任务栏
+            AllowSetForegroundWindow(ASFW_ANY);
+            HWND prev = FindWindowW(L"TicklyClass", nullptr);
+            if (prev && !PostMessageW(prev, WM_TICKLY_SHOW, 0, 0)) {
+                // 消息发不出去（类名不符/竞态）时的兜底：直接操作目标窗口
+                if (IsIconic(prev))              ShowWindow(prev, SW_RESTORE);
+                else if (!IsWindowVisible(prev)) ShowWindow(prev, SW_SHOW);
+                SetForegroundWindow(prev);
+            }
         }
         CloseHandle(hMutex);
         return 0;                            // 第二实例直接退出

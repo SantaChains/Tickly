@@ -53,6 +53,67 @@ void FlushSave() {
     SaveTasks();
 }
 
+// ---------------------------- 搜索框 ----------------------------------------
+// Ctrl+F 在标题行唤出（原位替代副标题），Esc 关闭并清空过滤。
+// 过滤只影响显示行（rows.cpp），任务数据本身不动。
+static HWND    s_search        = nullptr;
+static WNDPROC s_oldSearchProc = nullptr;
+
+static std::wstring SearchText() {
+    int n = GetWindowTextLengthW(s_search);
+    std::wstring s((size_t)n + 1, L'\0');
+    GetWindowTextW(s_search, s.data(), n + 1);
+    s.resize((size_t)n);
+    return s;
+}
+
+static void ApplySearchFilter() {
+    SetSearchFilter(SearchText());
+    RebuildRows();
+}
+
+bool SearchActive() { return s_search && IsWindowVisible(s_search); }
+
+void ToggleSearch() {
+    if (!s_search) return;
+    if (IsWindowVisible(s_search)) {
+        ShowWindow(s_search, SW_HIDE);
+        SetWindowTextW(s_search, L"");
+        SetSearchFilter(L"");
+        RebuildRows();
+        SetFocus(g_input);
+    } else {
+        ShowWindow(s_search, SW_SHOW);
+        SetFocus(s_search);
+    }
+    InvalidateRect(g_hwnd, nullptr, TRUE);
+}
+
+static void PaintSearchPlaceholder(HWND h) {
+    if (GetWindowTextLengthW(h) != 0) return;
+    RECT rc {};
+    GetClientRect(h, &rc);
+    HDC dc = GetDC(h);
+    HGDIOBJ of = SelectObject(dc, g_fontSub);
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, COL_MUTED);
+    DrawTextW(dc, L"搜索任务…（Esc 退出）", -1, &rc,
+              DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+    SelectObject(dc, of);
+    ReleaseDC(h, dc);
+}
+
+static LRESULT CALLBACK SearchProc(HWND h, UINT m, WPARAM w, LPARAM l) {
+    if (m == WM_KEYDOWN) {
+        if (w == VK_ESCAPE)                     { ToggleSearch(); return 0; }
+        if (w == VK_RETURN)                     { SetFocus(g_list); return 0; }
+        if (w == 'F' && (GetKeyState(VK_CONTROL) & 0x8000)) { ToggleSearch(); return 0; }
+    }
+    LRESULT r = CallWindowProcW(s_oldSearchProc, h, m, w, l);
+    if (m == WM_PAINT) PaintSearchPlaceholder(h);
+    return r;
+}
+
 // ---------------------------- 布局 ------------------------------------------
 void Layout() {
     RECT rc {};
@@ -102,6 +163,14 @@ void Layout() {
     // 右上角「更多」：与标题同一视觉高度
     int moreW = Scale(34), moreH = Scale(26);
     MoveWindow(g_btnMore, W - m - moreW, Scale(14), moreW, moreH, TRUE);
+
+    // 搜索框占用副标题那条带（只在 Ctrl+F 后可见）
+    if (s_search) {
+        int sx = m + Scale(15);
+        int sw = W - sx - m - Scale(8);
+        if (sw < Scale(60)) sw = Scale(60);
+        MoveWindow(s_search, sx, Scale(44), sw, Scale(24), TRUE);
+    }
 
     SetRect(&g_listFrame, m - 1, listTop - 1, W - m + 1, listTop + listH + 1);
     SetRect(&g_hintRect, m + Scale(2), topY + inputH + Scale(3),
@@ -176,6 +245,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
         g_oldEditProc = (WNDPROC)SetWindowLongPtrW(g_input, GWLP_WNDPROC,
                                                    (LONG_PTR)EditProc);
+        // v2.3.3：标题行搜索框（Ctrl+F 唤出，见 ToggleSearch）
+        s_search = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL,
+                                   0, 0, 10, 10, hwnd,
+                                   (HMENU)(INT_PTR)IDC_SEARCH, hi, nullptr);
+        SendMessageW(s_search, WM_SETFONT, (WPARAM)g_fontSub, TRUE);
+        s_oldSearchProc = (WNDPROC)SetWindowLongPtrW(s_search, GWLP_WNDPROC,
+                                                     (LONG_PTR)SearchProc);
         SetTimer(hwnd, 1, 15000, nullptr);   // 周期检查任务提醒
         g_msgTaskbarCreated = RegisterWindowMessageW(L"TaskbarCreated");
         // 托盘常驻三步：① 预写（上次运行遗留的设置子键先置 IsPromoted=1，
@@ -339,6 +415,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             g_menuRow = -1;
             return 0;
         }
+        if (id == IDC_SEARCH && code == EN_CHANGE)  { ApplySearchFilter(); return 0; }
         if (id == IDC_INPUT && code == EN_CHANGE)  {
             // v1.13.16：EN_CHANGE 是 EDIT 在「处理输入的过程中」同步发给父窗口的。
             // 此刻若对同一个控件发 EM_SETRECT / EM_SETSEL，等于在它插入文字的
@@ -449,6 +526,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             SetTextColor(hdc, EffTaskCol());
             return (LRESULT)CachedBrush(COL_WHITE);
         }
+        if (s_search && (HWND)lParam == s_search) {   // v2.3.3：搜索框铺页面底色
+            SetBkColor(hdc, COL_BG);
+            SetTextColor(hdc, COL_TEXT);
+            return (LRESULT)CachedBrush(COL_BG);
+        }
         break;
     }
 
@@ -456,6 +538,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         if (g_themeMode == 2 && lParam &&
             lstrcmpiW((LPCWSTR)lParam, L"ImmersiveColorSet") == 0)
             ApplyTheme();
+        return 0;
+
+    case WM_TICKLY_SHOW:                 // 第二个实例请求显示（单实例唤起）
+        ShowMainWindow();
         return 0;
 
     case WM_TIMER:
@@ -562,27 +648,30 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
         // v1.13.11：副标题从「五条操作说明」改为状态摘要 —— 操作提示本来就
         // 没人读，占着一整行；这里改为一眼能看懂的待办概况
-        SelectObject(hdc, g_fontSub);
-        SetTextColor(hdc, COL_MUTED);
-        RECT st = { m + Scale(15), Scale(46), rc.right - m - Scale(44),
-                    Scale(46) + Scale(18) };
-        int openCnt = 0, todayCnt = 0;
-        long long tm0 = TodayMidnight();
-        for (const Task& t : g_tasks) {
-            if (t.done) continue;
-            ++openCnt;
-            if (t.due && t.due < tm0 + 86400) ++todayCnt;
+        // v2.3.3：搜索框开启时这块区域交给搜索框，不再画副标题
+        if (!s_search || !IsWindowVisible(s_search)) {
+            SelectObject(hdc, g_fontSub);
+            SetTextColor(hdc, COL_MUTED);
+            RECT st = { m + Scale(15), Scale(46), rc.right - m - Scale(44),
+                        Scale(46) + Scale(18) };
+            int openCnt = 0, todayCnt = 0;
+            long long tm0 = TodayMidnight();
+            for (const Task& t : g_tasks) {
+                if (t.done) continue;
+                ++openCnt;
+                if (t.due && t.due < tm0 + 86400) ++todayCnt;
+            }
+            std::wstring sub;
+            if (openCnt == 0)
+                sub = L"还没有待办 · 在上方输入后回车添加";
+            else if (todayCnt > 0)
+                sub = std::to_wstring(openCnt) + L" 项待办 · 今天 " +
+                      std::to_wstring(todayCnt) + L" 项";
+            else
+                sub = std::to_wstring(openCnt) + L" 项待办";
+            DrawTextW(hdc, sub.c_str(), -1, &st,
+                      DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
         }
-        std::wstring sub;
-        if (openCnt == 0)
-            sub = L"还没有待办 · 在上方输入后回车添加";
-        else if (todayCnt > 0)
-            sub = std::to_wstring(openCnt) + L" 项待办 · 今天 " +
-                  std::to_wstring(todayCnt) + L" 项";
-        else
-            sub = std::to_wstring(openCnt) + L" 项待办";
-        DrawTextW(hdc, sub.c_str(), -1, &st,
-                  DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 
         // 日期时间实时识别提示（v0.21：UpdateInputHint 已生成完整文案，
         // 这里原样绘制 —— 原来再包一层「识别到：…（回车添加…）」重复渲染）

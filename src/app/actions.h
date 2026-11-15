@@ -23,3 +23,7 @@ void MultiSetDone(const std::vector<int>& idxs, bool done);
 void MultiDelete(const std::vector<int>& idxs);
 
 void ClearDone();
+
+bool HasUndo();
+
+void UndoLast();      // 撤销最近一次删除（含批量删除 / 清除已完成）

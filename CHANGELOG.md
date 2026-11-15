@@ -2,28 +2,23 @@
 
 本文件只保留最新版本的更新说明。旧版本由 `tools/archive-changelog.ps1` 归档到 `CHANGELOG.old`（新版本在前），不要手工搬运。
 
-## v2.3.2 工程重构、配色升级与缺陷修复
+## v2.3.3 撤销、搜索过滤与结构收敛
 
-### 工程重构
+### 新功能
 
-- 单文件源码 `Tickly_v2.3.1.cpp`（6797 行）按职责拆为 `src/app`、`src/core`、`src/ui`、`src/platform` 四层，模块之间只通过头文件里的声明交互。
-- 构建方式由 CI 里手写的 `cl.exe` 命令改为 CMake + Ninja，产物统一为 `build/Tickly.exe`，CI 改为直接调用 CMake。
-- 版本号唯一来源收敛到 `src/app/version.h`：CMake 在配置阶段校验 `assets/resource.rc` 的 `FILEVERSION` 与 `assets/app.manifest` 的 `assemblyIdentity version`，不一致直接配置失败。
-- 资源集中到 `assets/`：图标 `app.ico`、DPI 清单 `app.manifest`、资源脚本 `resource.rc`，以及 mingw 用的 `manifest.rc`。
-- 新增 mingw-w64 构建支持；`cmake/mingw64.specs` 去掉 mingw 默认清单，避免与 PerMonitorV2 清单冲突。
-- 资源编译显式声明 `OBJECT_DEPENDS`，改图标或清单必定触发重新编译与重链，不再出现「构建成功但 exe 还是旧图标」。
-- README 按构建、目录结构、数据格式重写。
+- 撤销：`Ctrl+Z` 撤销最近一次删除（含批量删除、清除已完成），保留 20 层，按删除前的原始下标插回，位置与顺序不变。
+- 搜索过滤：`Ctrl+F` 在标题行唤出搜索框，输入即过滤（子串、大小写不敏感），`Esc` 收起并清空；过滤只作用于显示行，不改任务数据。
+- 单实例唤起：重复启动不再产生第二个进程；第二个实例把前台权限转授给已运行实例并投递消息，由后者自己还原/置前（Windows 前台锁下才真正生效）。`--autostart` 那一路遇到已有实例静默退出，不抢登录时的焦点。
 
-### 配色升级
+### 工程
 
-- 主色由 Apple 蓝 `#007AFF` 改为与应用图标同源的微信绿 `#07C160`，浅色底 `#F5F6F7`、深色底 `#1A1C1E`，逾期红由 `#FF3B30` 换成 `#FA5151`。
-- 选中行改为淡绿底 `#E8F5EE`（深色 `#26302B`）；主按钮与行内光标颜色改为由 `COL_ACCENT` 派生，之后换主题色不必再改第二处。
+- 分组展开状态由 10 个独立 bool 收敛为 `g_groupOpen[10]`，读写两侧的 switch 消失，落盘仍写同一串 0/1，格式不变。
+- `g_rows` 的负数行编码改为 `IsTaskRow` / `GroupOfRow` / `HeaderRowForGroup` 等函数，界面侧不再出现 `-(g+1)`、`-1 - v` 这类算术。
+- 变更改为 300ms 合并落盘：连续勾选/删除只写一次盘，拖动结束、关机、退出立即刷盘；异常退出最多丢最近 300ms 的改动。
+- 持久化层不再取窗口句柄：窗口位置由界面层在写盘前同步到 `g_wp*`，`store` 只做序列化。
+- 删除空函数 `UpdateButtons`（全项目 36 处调用）与 `RebuildRows` 之后多余的 `ListRepaint`，用例尾部收敛为 `AfterMutation()`。
 
-### 缺陷修复
+### 构建
 
-- 设置对话框长标签在初始化时按实际字体测宽，非 100% 缩放下不再被自身控件宽度截断。
-- 补上 Delete 键删除所选任务，多选时按批量删除处理，并在删除前关闭正在编辑的行。
-- 清理 5 条 dead-code 告警：`IsToday`、`DeleteSelected`、`date_parse` 的 `hm`、`dialogs_common` 的 `left`、`rows.cpp` 的 lambda 捕获 `g`。
-- MinGW 资源编译不再向 RC 传 windres 专有的 `--codepage`（llvm-rc 会直接失败），代码页统一由 .rc 的 `#pragma code_page` 声明，llvm-rc 追加 `/C65001`。
-- CI 拆分构建与发布任务：构建/PR 只用只读令牌，仅 tag 发布任务提权；补 MinGW 构建任务，覆盖 `manifest.rc` 与 `mingw64.specs` 分支。
-- 开机自启改为 `--autostart` 静默启动：只驻留托盘，不弹主窗口，提醒、热键与托盘菜单照常；旧注册表项在启动时自动改写，升级后下一次开机即生效。
+- 修复 clang-cl 工具链下 llvm-rc 编译中文版本信息失败：`/C65001` 从 mingw 分支移到工具链无关的位置。
+- `.gitignore` 补上 `build-mingw/`、`build-msvc/`、`build-clang/`。

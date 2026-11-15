@@ -18,6 +18,24 @@ bool g_groupOpen[10] = { true, true, true, true, true,
 int  g_grpCount[5] = {0, 0, 0, 0, 0};  // 完成分组各桶数（绘制用）
 int  g_openCount[5] = {0, 0, 0, 0, 0}; // 未完成各分组数（v1.11.0，绘制用）
 
+// 搜索过滤：只在显示层生效，不动任务数据本身；空串表示不过滤
+std::wstring g_filter;
+static std::wstring s_filterLower;
+
+void SetSearchFilter(const std::wstring& text) {
+    g_filter = text;
+    s_filterLower = text;
+    if (!s_filterLower.empty())
+        CharLowerBuffW(s_filterLower.data(), (DWORD)s_filterLower.size());
+}
+
+static bool MatchesFilter(const Task& t) {
+    if (s_filterLower.empty()) return true;
+    std::wstring hay = t.text;
+    CharLowerBuffW(hay.data(), (DWORD)hay.size());
+    return hay.find(s_filterLower) != std::wstring::npos;
+}
+
 // ---------------------------- 行模型 ----------------------------------------
 int CountDone() {
     int n = 0;
@@ -80,6 +98,7 @@ void RebuildRows() {
     std::vector<int> openBuckets[5];   // 0=逾期 1=今天 2=明天 3=更晚 4=无日期
     for (size_t i = 0; i < g_tasks.size(); ++i) {
         if (g_tasks[i].done) continue;
+        if (!MatchesFilter(g_tasks[i])) continue;
         long long due = g_tasks[i].due;
         int g;
         if (!due)                          g = 4;
@@ -107,6 +126,7 @@ void RebuildRows() {
     std::vector<int> buckets[5];
     for (size_t i = 0; i < g_tasks.size(); ++i) {
         if (!g_tasks[i].done) continue;
+        if (!MatchesFilter(g_tasks[i])) continue;
         for (int g = 0; g < 5; ++g) {
             if (!InGroupDone(g_tasks[i].doneAt, g)) continue;
             buckets[g].push_back((int)i);   // 桶重叠：同一任务可进多个分组

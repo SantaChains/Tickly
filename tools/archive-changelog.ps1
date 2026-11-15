@@ -1,4 +1,4 @@
-# 把 CHANGELOG.md 里除最新版本外的旧段落归档到 CHANGELOG.old 顶部。
+﻿# 把 CHANGELOG.md 里除最新版本外的旧段落归档到 CHANGELOG.old 顶部。
 #
 # 约定：CHANGELOG.md 只保留最新的一个 "## vX.Y.Z" 段落（新版本写在最前），
 #       发版后运行本脚本，旧版本按原有顺序移入 CHANGELOG.old，归档文件只增不改。
@@ -8,12 +8,17 @@
 #   powershell -File tools/archive-changelog.ps1 -DryRun   # 只看会动哪些版本
 [CmdletBinding()]
 param(
-    [string]$ChangeLog = (Join-Path $PSScriptRoot '..\CHANGELOG.md'),
-    [string]$Archive   = (Join-Path $PSScriptRoot '..\CHANGELOG.old'),
+    [string]$ChangeLog,
+    [string]$Archive,
     [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Stop'
+# $PSScriptRoot / $PSCommandPath 在 param 默认值求值时可能还没赋值
+# （powershell -File 的 5.1 实测如此），默认路径改到这里再拼
+$here = Split-Path -Parent $PSCommandPath
+if (-not $ChangeLog) { $ChangeLog = Join-Path $here '..\CHANGELOG.md' }
+if (-not $Archive)   { $Archive   = Join-Path $here '..\CHANGELOG.old' }
 $ChangeLog = (Resolve-Path $ChangeLog).Path
 $Archive   = [IO.Path]::GetFullPath($Archive)
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)

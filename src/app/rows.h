@@ -31,6 +31,10 @@ extern bool g_doneCollapsed;
 
 extern bool g_groupOpen[10];   // 展开状态：0..4 完成分组，5..9 未完成分组
 
+extern std::wstring g_filter;  // 搜索过滤词（空 = 不过滤）
+
+void SetSearchFilter(const std::wstring& text);   // 更新过滤词（调用方随后 RebuildRows）
+
 extern int  g_grpCount[5];
 
 extern int  g_openCount[5];

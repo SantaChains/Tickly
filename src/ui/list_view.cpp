@@ -1009,6 +1009,23 @@ LRESULT CALLBACK TodoListProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                 return 0;
             }
             break;
+        case 'Z':                            // v2.3.3：Ctrl+Z 撤销最近一次删除
+            if (GetKeyState(VK_CONTROL) & 0x8000) {
+                CloseRowEditor(true);
+                UndoLast();
+                return 0;
+            }
+            break;
+        case 'F':                            // v2.3.3：Ctrl+F 搜索过滤
+            if (GetKeyState(VK_CONTROL) & 0x8000) {
+                ToggleSearch();
+                return 0;
+            }
+            break;
+        case VK_ESCAPE:                      // 搜索展开时 Esc 收起（否则取消选中）
+            if (SearchActive()) ToggleSearch();
+            else DeselectList();
+            return 0;
         }
         break;
     }

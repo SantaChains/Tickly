@@ -12,6 +12,7 @@ static const int IDC_LIST       = 1003;
 static const int IDC_BTN_CLEAR  = 1006;   // 已并入右上角「⋯」菜单
 static const int IDC_BTN_SETTINGS = 1007; // 已并入右上角「⋯」菜单
 static const int IDC_BTN_MORE   = 1009;   // v1.13.11：右上角「更多」按钮
+static const int IDC_SEARCH     = 1010;   // v2.3.3：标题行内的搜索框（Ctrl+F 唤出）
 
 // 托盘/右键菜单命令 ID
 static const int IDM_TRAY_SHOW = 3001;   // 显示主窗口
@@ -28,6 +29,7 @@ static const int IDC_ROWEDIT    = 1008;  // 行内编辑框（列表子控件）
 static const UINT WM_OPENDATE   = WM_APP + 2;  // 请求打开日期编辑对话框
 static const UINT WM_ROWEDITCHK = WM_APP + 3;  // v0.22：编辑框首帧后复核行数
 static const UINT WM_INPUTCHANGED = WM_APP + 4;  // v1.13.16：输入框内容变化的延迟处理
+static const UINT WM_TICKLY_SHOW = WM_APP + 5;   // 第二个实例请求已运行实例显示主窗口
 
 // 设置对话框：全局快捷键控件（v1.12.0）
 static const int IDC_HK_SHOW    = 2105;  // 「显示主窗口」快捷键

@@ -9,5 +9,5 @@
 // 之前 4 条提示各带一份 "v1.13.x"，改版本时最容易漏改其中一条。
 // 改版本时需同步三处：本宏、assets/resource.rc 的 FILEVERSION、
 // assets/app.manifest 的 version（CMake 配置阶段校验，不一致直接失败）。
-#define TICKLY_VERSION   L"2.3.2"
+#define TICKLY_VERSION   L"2.3.3"
 #define TICKLY_VER_PFX   L"v" TICKLY_VERSION      // 界面显示用："v2.3.2"

@@ -192,6 +192,16 @@ T	done	doneAt	due	hasTime	notified	text   任务（text 末尾，可含转义换
 复跑：`powershell -File build/_refactor/startup.ps1 -Exe <exe> -Runs 3`
 （临时脚本，在 `.gitignore` 内的 `build/`）。
 
+v2.3.3 补充测量（同一份 5000 条合成数据：4000 条短文本 + 1000 条约 80 字长文本，n=3）：
+
+| 数据 | v2.3.2 | v2.3.3 | 变化 |
+| --- | --- | --- | --- |
+| 5000 条（短 + 长混合） | 1350 ms | **879 ms** | −35% |
+| 5000 条纯短任务 | 700 ms | **347 ms** | −50% |
+| 空列表 | 293 ms | 288 ms | 持平 |
+
+做法是去掉启动时重复的一次全量重建，并把行高从「每行算两遍」改成一次算完（`g_rowH`）后填塞高度与前缀和共用。
+
 ## 图标
 
 `tools/make-icon.ps1` 生成 `assets/app.ico`（微信绿纯色基调）：

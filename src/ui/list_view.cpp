@@ -27,8 +27,10 @@ double g_scrollPx  = 0.0;      // 当前滚动像素（内容顶部被移出视�
 double g_scrollTgt = 0.0;      // 滚轮动画目标像素
 UINT_PTR g_scrollTimer = 0;    // 滚动动画定时器（列表窗口内 id 1）
 std::vector<int> g_rowTops;    // 每行 top y（内容坐标，size = 行数+1）
+static std::vector<int> g_rowH;     // 每行高度（与 g_rows 同步，RebuildRowTops 填）
 int    g_totalH = 0;           // 内容总高（含填塞行）
 int    g_viewH  = 0;           // 列表视口高
+static int    s_listW = 0;          // 列表视口宽（RebuildRowTops 记录，行高测量复用）
 static bool   g_sbDrag  = false;      // 正在拖动滚动条
 static bool   g_sbTrack = false;      // 鼠标悬停在滚动条热区
 static int    g_sbGrabOff = 0;        // 拖动抓取点相对 thumb 顶部的偏移
@@ -208,11 +210,16 @@ int RowEditMaxLines(int contentLines) {
 int TaskRowHeight(int idx) {
     if (idx < 0 || idx >= (int)g_tasks.size()) return Scale(40);
     const Task& t = g_tasks[(size_t)idx];
-    RECT lrc;
-    if (!g_list || !GetClientRect(g_list, &lrc) || lrc.right <= 0) return Scale(40);
+    int listW = s_listW;
+    if (listW <= 0) {                    // 尚未记录视口宽（首次布局前）时现取
+        RECT lrc;
+        if (!g_list || !GetClientRect(g_list, &lrc)) return Scale(40);
+        listW = lrc.right;
+    }
+    if (listW <= 0) return Scale(40);
     int whenW = WhenLabelWidth(t);
     int textLeft  = Scale(12) + Scale(18) + Scale(12);
-    int textRight = lrc.right - Scale(12) - RowGutter() - (whenW ? whenW + Scale(12) : 0);
+    int textRight = listW - Scale(12) - RowGutter() - (whenW ? whenW + Scale(12) : 0);
     HDC hdc = MeasureDC();
     HGDIOBJ of = SelectObject(hdc, t.done ? g_fontDone : g_font);
     int lineH = TaskLineHeight(hdc);
@@ -242,35 +249,37 @@ int RowHeightAt(int r) {
     return TaskRowHeight(r);
 }
 
-// 填塞行高度 = 视口高 - 其余行总高（剩余不足则为 0 -> 正常滚动）
-UINT CalcFillerHeight() {
-    if (!g_list) return 0;
-    RECT lrc;
-    if (!GetClientRect(g_list, &lrc) || lrc.bottom <= 0) return 0;
-    int others = 0;
-    for (int r : g_rows) {
-        if (r == ROW_FILL) continue;
-        others += RowHeightAt(r);
-    }
-    long long fill = (long long)lrc.bottom - others;
-    return fill > 0 ? (UINT)fill : 0;
-}
-
-// 重建行 top 前缀和与内容总高；填塞行高度随视口变化在这里统一处理。
-// 任何行结构/行高/视口变化后都必须调用（内部处理滚动越界钳制）。
+// v2.3.3：行高按行只算一次（g_rowH），填塞高度与前缀和共用这份结果 ——
+// 之前 CalcFillerHeight + 前缀和各扫一遍，等于把 5000 行的折行测量做两遍。
 void RebuildRowTops() {
-    if (g_fillRow >= 0) g_fillH = CalcFillerHeight();
-    size_t n = g_rows.size();
+    RECT lrc {};
+    const bool hasView = g_list && GetClientRect(g_list, &lrc);
+    g_viewH = hasView ? lrc.bottom : 0;
+    if (hasView) s_listW = lrc.right;
+
+    const size_t n = g_rows.size();
+    g_rowH.assign(n, 0);
+    int others = 0;
+    for (size_t i = 0; i < n; ++i) {
+        if (g_rows[i] == ROW_FILL) continue;
+        const int h = RowHeightAt(g_rows[i]);
+        g_rowH[i] = h;
+        others += h;
+    }
+    if (g_fillRow >= 0 && g_fillRow < (int)n) {
+        long long fill = (long long)g_viewH - others;
+        g_fillH = fill > 0 ? (UINT)fill : 0;
+        g_rowH[(size_t)g_fillRow] = (int)g_fillH;
+    }
+
     g_rowTops.assign(n + 1, 0);
     int y = 0;
     for (size_t i = 0; i < n; ++i) {
         g_rowTops[i] = y;
-        y += RowHeightAt(g_rows[i]);
+        y += g_rowH[i];
     }
     g_rowTops[n] = y;
     g_totalH = y;
-    RECT lrc;
-    g_viewH = (g_list && GetClientRect(g_list, &lrc)) ? lrc.bottom : 0;
     double maxPx = (g_totalH > g_viewH) ? (double)(g_totalH - g_viewH) : 0.0;
     if (g_scrollPx > maxPx) g_scrollPx = maxPx;
     if (g_scrollTgt > maxPx) g_scrollTgt = maxPx;

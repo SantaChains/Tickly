@@ -56,8 +56,6 @@ int TaskRowHeight(int idx);
 
 int RowHeightAt(int r);
 
-UINT CalcFillerHeight();
-
 void RebuildRowTops();
 
 int RowTop(int r);

@@ -74,6 +74,7 @@ set(TICKLY_UI_SOURCES
   src/ui/dwm_shell.cpp
   src/ui/main_window.cpp
   src/ui/list_view.cpp
+  src/ui/list_text.cpp
   src/ui/list_paint.cpp
   src/ui/row_editor.cpp
   src/ui/input_box.cpp

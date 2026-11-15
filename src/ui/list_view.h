@@ -42,6 +42,9 @@ void PushWrappedWord(HDC hdc, const std::wstring& word, int maxW,
 
 std::vector<std::wstring> WrapTaskText(HDC hdc, int idx, int maxW);
 
+// 列表视口宽（RebuildRowTops 记录，行高测量复用；实现在 list_text.cpp）
+void SetListWidth(int w);
+
 // 只要行数（行高计算用：命中缓存时不拷贝结果）
 int WrapTaskLineCount(HDC hdc, int idx, int maxW);
 

@@ -49,31 +49,31 @@ static bool PtInBoxZone(const RECT& ir, int x) {
 }
 
 // 把一个词放入当前行；放不下时换行；单词本身超宽（如长 URL、无空格的
-// 中文长段落）按字符硬断 —— v1.12.1 改二分查找每行最大可容纳前缀，
-// 测量次数从逐字 O(N) 降到每行 O(log N)，数千字长文本行高计算不再卡顿
+// 中文长段落）按字符硬断 —— 每行用一次 GetTextExtentExPointW 直接取
+// 「maxW 内可容纳的前缀字符数」，不再对每个候选前缀各做一次
+// GetTextExtentPoint32 二分测量（长文本折行是冷启动的主要开销）
 void PushWrappedWord(HDC hdc, const std::wstring& word, int maxW,
                             std::wstring& cur, std::vector<std::wstring>& lines) {
     if (word.empty()) return;
-    SIZE sz {};
+    // s 中宽度不超过 maxW 的最长前缀字符数（至少 1：单字符也超宽时只能硬留）
+    auto fitPrefix = [&](const wchar_t* s, int len) -> int {
+        int fit = 0;
+        SIZE sz {};
+        GetTextExtentExPointW(hdc, s, len, maxW, &fit, nullptr, &sz);
+        if (fit > len) fit = len;
+        return fit > 0 ? fit : 1;
+    };
     std::wstring cand = cur.empty() ? word : cur + L' ' + word;
-    GetTextExtentPoint32W(hdc, cand.c_str(), (int)cand.size(), &sz);
-    if (sz.cx <= maxW) { cur = cand; return; }
+    if (fitPrefix(cand.c_str(), (int)cand.size()) >= (int)cand.size()) {
+        cur = cand;
+        return;
+    }
     if (!cur.empty()) { lines.push_back(cur); cur.clear(); }
-    if (word.size() == 1) { cur = word; return; }   // 单字符也超宽：只能保留
     size_t pos = 0;
     for (;;) {
-        // 在 word[pos..] 上二分找最大 fit：宽度(word[pos..pos+fit)) <= maxW
-        size_t lo = 1, hi = word.size() - pos, fit = 1;
-        while (lo <= hi) {
-            size_t mid = lo + (hi - lo) / 2;
-            GetTextExtentPoint32W(hdc, word.c_str() + pos, (int)mid, &sz);
-            if (sz.cx <= maxW) { fit = mid; lo = mid + 1; }
-            else {
-                if (mid == 0) break;
-                hi = mid - 1;
-            }
-        }
-        if (pos + fit >= word.size()) {          // 剩余部分整段放得下
+        size_t rem = word.size() - pos;
+        size_t fit = (size_t)fitPrefix(word.c_str() + pos, (int)rem);
+        if (fit >= rem) {                        // 剩余部分整段放得下
             cur.assign(word, pos, std::wstring::npos);
             return;
         }

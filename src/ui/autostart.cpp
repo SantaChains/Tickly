@@ -24,7 +24,11 @@ bool GetAutoStart() {
     }
     RegCloseKey(k);
     if (old) SetAutoStart(true);   // 迁移（内部会清掉旧值）
-    return r == ERROR_SUCCESS && type == REG_SZ;
+    // v2.3.2：旧版自启项没有 --autostart，开机仍会弹主窗口；读到旧写法就
+    // 原地改写成静默启动（只驻留托盘）
+    const bool exists = (r == ERROR_SUCCESS && type == REG_SZ);
+    if (!old && exists && !wcsstr(buf, L"--autostart")) SetAutoStart(true);
+    return exists;
 }
 
 void SetAutoStart(bool on) {
@@ -34,7 +38,8 @@ void SetAutoStart(bool on) {
     if (on) {
         wchar_t exe[MAX_PATH * 2] = L"";
         GetModuleFileNameW(nullptr, exe, MAX_PATH * 2);
-        std::wstring v = L"\"" + std::wstring(exe) + L"\"";
+        // v2.3.2：带上 --autostart，开机启动时不弹主窗口，只驻留托盘
+        std::wstring v = L"\"" + std::wstring(exe) + L"\" --autostart";
         RegSetValueExW(k, kRunValue, 0, REG_SZ, (const BYTE*)v.c_str(),
                        (DWORD)((v.size() + 1) * sizeof(wchar_t)));
     } else {

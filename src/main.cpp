@@ -12,10 +12,17 @@
 #include "ui/theme.h"
 #include "ui/toast.h"
 #include "ui/main_window.h"
+#include "ui/autostart.h"
 
 
 // ---------------------------- 入口 ------------------------------------------
-int APIENTRY wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int nCmdShow) {
+int APIENTRY wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR lpCmdLine, int nCmdShow) {
+    // v2.3.2：注册表自启项带 --autostart —— 开机时只驻留托盘，不弹主窗口
+    const std::wstring cmdLine = lpCmdLine ? lpCmdLine : L"";
+    const bool startHidden = cmdLine.find(L"--autostart") != std::wstring::npos;
+    // 旧版注册表项没有 --autostart，读一次顺手改写，下次开机即静默启动
+    GetAutoStart();
+
     // v2.0：必须在任何窗口/DC 创建之前声明 DPI 感知
     EnableDpiAwareness();
 
@@ -136,8 +143,12 @@ int APIENTRY wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int nCmdShow) {
                          r.right - r.left, r.bottom - r.top, SWP_NOZORDER);
         if (g_wpMax) showCmd = SW_SHOWMAXIMIZED;
     }
-    ShowWindow(g_hwnd, (int)showCmd);
-    UpdateWindow(g_hwnd);
+    // v2.3.2：开机自启走隐藏分支 —— 窗口不 Show（创建时本就不带 WS_VISIBLE），
+    // 托盘图标、提醒定时器、全局热键已在 WM_CREATE 与上面注册好，照常工作
+    if (!startHidden) {
+        ShowWindow(g_hwnd, (int)showCmd);
+        UpdateWindow(g_hwnd);
+    }
     CheckReminders();   // 启动时若有到期/逾期任务，立即提醒
 
     MSG msg;

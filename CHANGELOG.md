@@ -26,3 +26,4 @@
 - 清理 5 条 dead-code 告警：`IsToday`、`DeleteSelected`、`date_parse` 的 `hm`、`dialogs_common` 的 `left`、`rows.cpp` 的 lambda 捕获 `g`。
 - MinGW 资源编译不再向 RC 传 windres 专有的 `--codepage`（llvm-rc 会直接失败），代码页统一由 .rc 的 `#pragma code_page` 声明，llvm-rc 追加 `/C65001`。
 - CI 拆分构建与发布任务：构建/PR 只用只读令牌，仅 tag 发布任务提权；补 MinGW 构建任务，覆盖 `manifest.rc` 与 `mingw64.specs` 分支。
+- 开机自启改为 `--autostart` 静默启动：只驻留托盘，不弹主窗口，提醒、热键与托盘菜单照常；旧注册表项在启动时自动改写，升级后下一次开机即生效。

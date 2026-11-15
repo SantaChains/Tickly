@@ -13,6 +13,7 @@
 #include "ui/theme.h"
 
 #include <unordered_map>
+#include <cstdint>
 #include "core/time_util.h"
 #include "ui/main_window.h"
 
@@ -205,18 +206,35 @@ int RowEditMaxLines(int contentLines) {
     return 0;
 }
 
+// 行高按任务缓存：签名覆盖所有影响行高的输入（文本、列表宽、字号/DPI、
+// 完成态、展开态、截止时间与是否含时刻）。命中就不再做折行与 GDI 度量，
+// 勾选/删除后的全量重建从「重算 N 行」变成「查 N 次表」。
+// 下标会随增删漂移，但签名不同就不会误命中（同签名必然同高）。
+namespace {
+struct RowHeightMemo {
+    std::uint64_t sig = 0;
+    int           h   = 0;
+};
+std::vector<RowHeightMemo> g_heightMemo;
+}  // namespace
+
+static std::uint64_t TaskHeightSig(const Task& t, int listW) {
+    std::uint64_t h = 1469598103934665603ull;          // FNV-1a 64
+    auto mix = [&h](std::uint64_t v) { h = (h ^ v) * 1099511628211ull; };
+    for (wchar_t c : t.text) { h = (h ^ (std::uint64_t)c) * 1099511628211ull; }
+    mix((std::uint64_t)(std::uint32_t)listW);
+    mix((std::uint64_t)(std::uint32_t)g_taskFontSize);
+    mix((std::uint64_t)g_dpi);
+    mix((std::uint64_t)t.due);
+    mix(t.hasTime ? 1u : 0u);
+    mix(t.done     ? 1u : 0u);
+    mix(t.expanded ? 1u : 0u);
+    return h;
+}
+
 // 任务行高度：单行任务固定 Scale(40)（与旧版一致）；
 // 多行任务 = 上下内边距 + 可见行数 x 行高（未展开 > 5 行时另留「展开」按钮行）
-int TaskRowHeight(int idx) {
-    if (idx < 0 || idx >= (int)g_tasks.size()) return Scale(40);
-    const Task& t = g_tasks[(size_t)idx];
-    int listW = s_listW;
-    if (listW <= 0) {                    // 尚未记录视口宽（首次布局前）时现取
-        RECT lrc;
-        if (!g_list || !GetClientRect(g_list, &lrc)) return Scale(40);
-        listW = lrc.right;
-    }
-    if (listW <= 0) return Scale(40);
+static int TaskRowHeightCompute(const Task& t, int idx, int listW) {
     int whenW = WhenLabelWidth(t);
     int textLeft  = Scale(12) + Scale(18) + Scale(12);
     int textRight = listW - Scale(12) - RowGutter() - (whenW ? whenW + Scale(12) : 0);
@@ -237,6 +255,31 @@ int TaskRowHeight(int idx) {
     int vis = (t.expanded || total <= kTaskMaxLines) ? total : kTaskMaxLines;
     int h = Scale(10) + vis * lineH + Scale(10) + btn + Scale(4);
     return h > Scale(40) ? h : Scale(40);
+}
+
+int TaskRowHeight(int idx) {
+    if (idx < 0 || idx >= (int)g_tasks.size()) return Scale(40);
+    const Task& t = g_tasks[(size_t)idx];
+    int listW = s_listW;
+    if (listW <= 0) {                    // 尚未记录视口宽（首次布局前）时现取
+        RECT lrc;
+        if (!g_list || !GetClientRect(g_list, &lrc)) return Scale(40);
+        listW = lrc.right;
+    }
+    if (listW <= 0) return Scale(40);
+
+    // 正在行内编辑的这一行高度取决于 EDIT 实测行数，不入缓存
+    if (idx == g_rowEditIdx && g_rowEdit != nullptr)
+        return TaskRowHeightCompute(t, idx, listW);
+
+    if (g_heightMemo.size() != g_tasks.size())
+        g_heightMemo.resize(g_tasks.size());
+    RowHeightMemo& m = g_heightMemo[(size_t)idx];
+    const std::uint64_t sig = TaskHeightSig(t, listW);
+    if (m.h > 0 && m.sig == sig) return m.h;
+    m.sig = sig;
+    m.h   = TaskRowHeightCompute(t, idx, listW);
+    return m.h;
 }
 
 // ---------------------------- 自绘列表行几何（v1.13.0） ----------------------

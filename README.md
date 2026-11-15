@@ -24,34 +24,32 @@
 
 ## 构建
 
-需要 CMake ≥ 3.20 + Ninja，以及下面任一编译器（C++20）。产物都是 `build/Tickly.exe`：
-单文件、静态链接运行库。
+需要 CMake ≥ 3.20 + Ninja + Visual Studio 2022（C++20）。只维护 MSVC 一条工具链，
+产物 `build-msvc/Tickly.exe`：单文件、`/MT` 静态链接运行库。
 
 ```bash
-# 1) 默认：MSVC + Ninja（CI 用的就是这一条）
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+# 在 VS 开发者环境里配置一次，之后只增量构建
+cmake -S . -B build-msvc -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-msvc
+```
 
-# 2) 可选：clang-cl + lld-link（诊断更严，产物同样验证可运行）
-cmake -S . -B build-clang -G Ninja -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_LINKER=lld-link
-cmake --build build-clang
+PowerShell 里没有开发者环境时，先导入再构建：
 
-# 3) 可选：mingw-w64（没有 MSVC 环境时）
-cmake -S . -B build-mingw -G Ninja -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_CXX_COMPILER=g++ -DCMAKE_RC_COMPILER=windres
-cmake --build build-mingw
+```powershell
+Import-Module '<VS>\Common7\Tools\Microsoft.VisualStudio.DevShell.dll'
+Enter-VsDevShell -VsInstallPath '<VS>' -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+cmake --build build-msvc
 ```
 
 工具链取舍：
 
 | 工具链 | 定位 | 理由 |
 | --- | --- | --- |
-| **MSVC + Ninja** | 主力 | 与 CI 完全一致；`/MT` 静态 CRT 兼容性最好；调试/PDB 最稳 |
-| clang-cl + lld-link | 可选 | 诊断更细（本次靠它找出 5 处 dead code）；但与 cl 混用 PDB/CRT 有坑，不作默认 |
-| mingw-w64 | 可选 | 没有 MSVC 时可用，已验证；清单/代码页需要 `cmake/mingw64.specs` 与 `--codepage` |
+| **MSVC + Ninja** | 唯一 | 产物最小（451 KB vs clang-cl 499 KB、MinGW 1688 KB）；`/MT` 静态 CRT 兼容性最好；调试/PDB 最稳 |
+| clang-cl + lld-link | 已停用 | 诊断更细，但与 cl 混用 PDB/CRT 有坑，维护成本大于收益 |
+| mingw-w64 | 已停用 | 产物 3 倍大，清单/代码页需要额外的 specs 与 `--codepage` 才能对齐 |
 
-Ninja 本身推荐：增量构建远快于 Make/MSBuild，三种工具链共用同一套命令。
+Ninja 本身推荐：增量构建远快于 Make/MSBuild。
 
 资源必须参与链接：
 

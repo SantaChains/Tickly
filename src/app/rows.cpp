@@ -29,11 +29,21 @@ void SetSearchFilter(const std::wstring& text) {
         CharLowerBuffW(s_filterLower.data(), (DWORD)s_filterLower.size());
 }
 
-static bool MatchesFilter(const Task& t) {
-    if (s_filterLower.empty()) return true;
-    std::wstring hay = t.text;
-    CharLowerBuffW(hay.data(), (DWORD)hay.size());
-    return hay.find(s_filterLower) != std::wstring::npos;
+// 过滤用小写缓存：RebuildRows 内未完成 / 已完成两轮共用，一条任务只小写化一次
+//（此前每轮都对全文做一次拷贝 + 小写，5000 条任务是 1 万次分配与小写）
+static std::vector<std::wstring> BuildFilterLower() {
+    std::vector<std::wstring> lower;
+    if (s_filterLower.empty()) return lower;
+    lower.reserve(g_tasks.size());
+    for (const Task& t : g_tasks) {
+        lower.push_back(t.text);
+        CharLowerBuffW(lower.back().data(), (DWORD)lower.back().size());
+    }
+    return lower;
+}
+
+static bool MatchesFilter(const std::wstring& lower) {
+    return lower.find(s_filterLower) != std::wstring::npos;
 }
 
 // ---------------------------- 行模型 ----------------------------------------
@@ -95,10 +105,11 @@ void RebuildRows() {
     // 空组自动隐藏。组内排序沿用 v1.9.2：有日期的按日期时间正序（同刻保持添加
     // 序），无日期的按添加时间倒序（g_tasks 数组本身即添加倒序，保持原相对顺序）
     long long todayMid = TodayMidnight();
+    const std::vector<std::wstring> lower = BuildFilterLower();
     std::vector<int> openBuckets[5];   // 0=逾期 1=今天 2=明天 3=更晚 4=无日期
     for (size_t i = 0; i < g_tasks.size(); ++i) {
         if (g_tasks[i].done) continue;
-        if (!MatchesFilter(g_tasks[i])) continue;
+        if (!lower.empty() && !MatchesFilter(lower[i])) continue;
         long long due = g_tasks[i].due;
         int g;
         if (!due)                          g = 4;
@@ -126,7 +137,7 @@ void RebuildRows() {
     std::vector<int> buckets[5];
     for (size_t i = 0; i < g_tasks.size(); ++i) {
         if (!g_tasks[i].done) continue;
-        if (!MatchesFilter(g_tasks[i])) continue;
+        if (!lower.empty() && !MatchesFilter(lower[i])) continue;
         for (int g = 0; g < 5; ++g) {
             if (!InGroupDone(g_tasks[i].doneAt, g)) continue;
             buckets[g].push_back((int)i);   // 桶重叠：同一任务可进多个分组

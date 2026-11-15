@@ -10,18 +10,11 @@
 std::vector<int>  g_rows;      // 显示行 -> 任务下标；负值 = 分组标题行
 UINT   g_fillH   = 0;            // 填塞行当前高度（像素，随窗口尺寸变化）
 bool g_doneCollapsed = true;        // v1.13.11：已完成区整体收纳（持久化）
+// 分组展开状态（持久化）：0..4 完成分组，5..9 未完成分组
+//（已逾期 / 今天 / 明天 / 更晚 / 无日期）
+bool g_groupOpen[10] = { true, true, true, true, true,
+                         true, true, true, true, true };
 // g_fillRow / g_fillH 已在滚动状态块中声明（v1.13.0）
-bool g_showWeek      = true;   // 完成分组展开状态（持久化）
-bool g_showLastWeek  = true;
-bool g_showMonth     = true;
-bool g_showLastMonth = true;
-bool g_showOther     = true;
-// v0.15 未完成分组展开状态（持久化）：已逾期 / 今天 / 明天 / 更晚 / 无日期
-bool g_showOverdue   = true;
-bool g_showToday     = true;
-bool g_showTomorrow  = true;
-bool g_showIn2       = true;
-bool g_showNoDate    = true;
 int  g_grpCount[5] = {0, 0, 0, 0, 0};  // 完成分组各桶数（绘制用）
 int  g_openCount[5] = {0, 0, 0, 0, 0}; // 未完成各分组数（v1.11.0，绘制用）
 
@@ -60,33 +53,11 @@ const wchar_t* OpenGroupName(int grp) {
 // v0.15：grp 0..4 = 完成分组，5..9 = 未完成分组（已逾期/今天/明天/更晚/无日期），
 // 两组都支持折叠 / 展开
 bool GroupOpen(int grp) {
-    switch (grp) {
-    case 0:  return g_showWeek;
-    case 1:  return g_showLastWeek;
-    case 2:  return g_showMonth;
-    case 3:  return g_showLastMonth;
-    case 4:  return g_showOther;
-    case 5:  return g_showOverdue;
-    case 6:  return g_showToday;
-    case 7:  return g_showTomorrow;
-    case 8:  return g_showIn2;
-    default: return g_showNoDate;
-    }
+    return grp >= 0 && grp < 10 ? g_groupOpen[grp] : true;
 }
 
 static void SetGroupOpen(int grp, bool v) {
-    switch (grp) {
-    case 0:  g_showWeek = v;      break;
-    case 1:  g_showLastWeek = v;  break;
-    case 2:  g_showMonth = v;     break;
-    case 3:  g_showLastMonth = v; break;
-    case 4:  g_showOther = v;     break;
-    case 5:  g_showOverdue = v;   break;
-    case 6:  g_showToday = v;     break;
-    case 7:  g_showTomorrow = v;  break;
-    case 8:  g_showIn2 = v;       break;
-    default: g_showNoDate = v;    break;
-    }
+    if (grp >= 0 && grp < 10) g_groupOpen[grp] = v;
 }
 
 // 任务下标 -> 当前显示行（找不到返回 -1）
@@ -126,7 +97,7 @@ void RebuildRows() {
                     return g_tasks[(size_t)a].due < g_tasks[(size_t)b].due;
                 });
         if (openBuckets[g].empty()) continue;   // 分组内没有任务时自动隐藏
-        g_rows.push_back(-(g + 6));             // 未完成分组标题行：-6..-10
+        g_rows.push_back(HeaderRowForGroup(g + 5));   // 未完成分组标题行：-6..-10
         if (GroupOpen(g + 5))                   // v0.15：未完成分组可折叠
             for (int i : openBuckets[g]) g_rows.push_back(i);
     }
@@ -151,7 +122,7 @@ void RebuildRows() {
                 [](int a, int b) {
                     return g_tasks[(size_t)a].doneAt > g_tasks[(size_t)b].doneAt;
                 });
-            g_rows.push_back(-(g + 1));   // 分组标题行（展开后空分组也显示）
+            g_rows.push_back(HeaderRowForGroup(g));   // 分组标题行（展开后空分组也显示）
             if (GroupOpen(g))
                 for (int i : buckets[g]) g_rows.push_back(i);
         }
@@ -173,7 +144,6 @@ void RefreshListKeepSel() {
         int k = RowOfIdx(idx);
         if (k >= 0) g_selRow = k;
     }
-    UpdateButtons();
 }
 
 // v0.15：完成分组（0..4）与未完成分组（5..9）都可折叠
@@ -181,7 +151,7 @@ void ToggleGroup(int grp) {
     if (grp < 0 || grp >= 10) return;
     bool opening = !GroupOpen(grp);
     SetGroupOpen(grp, opening);
-    SaveTasks();
+    RequestSave();
     RebuildRows();
     // 完成分组区底部锚定：展开时内容向上生长出视口，此前列表停在原位，
     // 看起来像「跳回顶部」（展开的组其实在视口外）—— 现在把组标题滚到
@@ -192,7 +162,6 @@ void ToggleGroup(int grp) {
             if (g_rows[r] == -(grp + 1)) { ListScrollTo(RowTop((int)r), true); break; }
         }
     }
-    UpdateButtons();
 }
 
 // ---------------------------- UI 动作 ---------------------------------------

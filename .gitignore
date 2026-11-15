@@ -6,6 +6,9 @@ Tickly.exe
 *.exp
 *.lib
 build/
+build-mingw/
+build-msvc/
+build-clang/
 backup/
 
 .workbuddy/

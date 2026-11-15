@@ -239,28 +239,12 @@ void SaveTasks() {
     // 保证「新版写出的文件用旧版打开」也不会显示成字面 \n
     out += "E\t1\r\n";
 
-    // S：完成分组 5 个 + 未完成分组 5 个 + 已完成区收纳
+    // S：分组展开 10 个布尔（完成 5 + 未完成 5）+ 已完成区收纳
     out += "S\t";
-    out += (g_showWeek ? "1" : "0");
-    out += "\t";
-    out += (g_showLastWeek ? "1" : "0");
-    out += "\t";
-    out += (g_showMonth ? "1" : "0");
-    out += "\t";
-    out += (g_showLastMonth ? "1" : "0");
-    out += "\t";
-    out += (g_showOther ? "1" : "0");
-    out += "\t";
-    out += (g_showOverdue ? "1" : "0");
-    out += "\t";
-    out += (g_showToday ? "1" : "0");
-    out += "\t";
-    out += (g_showTomorrow ? "1" : "0");
-    out += "\t";
-    out += (g_showIn2 ? "1" : "0");
-    out += "\t";
-    out += (g_showNoDate ? "1" : "0");
-    out += "\t";
+    for (int g = 0; g < 10; ++g) {
+        out += (g_groupOpen[g] ? "1" : "0");
+        out += "\t";
+    }
     out += (g_doneCollapsed ? "1" : "0");
     out += "\r\n";
 
@@ -276,19 +260,15 @@ void SaveTasks() {
     out += "\t" + std::to_string(g_hkCapVk);
     out += "\r\n";
 
-    // W：窗口位置（没有主窗口时略过，下次启动用默认居中）
-    if (g_hwnd) {
-        WINDOWPLACEMENT wp { sizeof(wp) };
-        if (GetWindowPlacement(g_hwnd, &wp)) {
-            const RECT& r = wp.rcNormalPosition;
-            out += "W\t";
-            out += (wp.showCmd == SW_SHOWMAXIMIZED ? "1" : "0");
-            out += "\t" + std::to_string((long long)r.left);
-            out += "\t" + std::to_string((long long)r.top);
-            out += "\t" + std::to_string((long long)r.right);
-            out += "\t" + std::to_string((long long)r.bottom);
-            out += "\r\n";
-        }
+    // W：窗口位置（ui 层在写盘前已同步到 g_wp*；无窗口/未记录则略过）
+    if (g_wpSaved) {
+        out += "W\t";
+        out += (g_wpMax ? "1" : "0");
+        out += "\t" + std::to_string((long long)g_wpRect.left);
+        out += "\t" + std::to_string((long long)g_wpRect.top);
+        out += "\t" + std::to_string((long long)g_wpRect.right);
+        out += "\t" + std::to_string((long long)g_wpRect.bottom);
+        out += "\r\n";
     }
 
     // F：任务/分组/日期/已完成分组 的字号+颜色，主题模式
@@ -335,16 +315,7 @@ void SaveTasks() {
 void LoadTasks() {
     // 先全部恢复默认值：文件缺字段/整行缺失时用这里的值
     g_tasks.clear();
-    g_showWeek      = true;
-    g_showLastWeek  = true;
-    g_showMonth     = true;
-    g_showLastMonth = true;
-    g_showOther     = true;
-    g_showOverdue   = true;
-    g_showToday     = true;
-    g_showTomorrow  = true;
-    g_showIn2       = true;
-    g_showNoDate    = true;
+    for (int g = 0; g < 10; ++g) g_groupOpen[g] = true;
     g_doneCollapsed = true;
     g_remindOn      = true;
     g_remindMin     = 15;
@@ -395,16 +366,7 @@ void LoadTasks() {
             if (w[1] != L'\t') break;
             const std::vector<std::wstring_view> f = SplitViews(w, 2);
             auto on = [&](size_t i) { return i >= f.size() || ToBool(f[i]); };
-            g_showWeek      = on(0);
-            g_showLastWeek  = on(1);
-            g_showMonth     = on(2);
-            g_showLastMonth = on(3);
-            g_showOther     = on(4);
-            g_showOverdue   = on(5);
-            g_showToday     = on(6);
-            g_showTomorrow  = on(7);
-            g_showIn2       = on(8);
-            g_showNoDate    = on(9);
+            for (int g = 0; g < 10; ++g) g_groupOpen[g] = on((size_t)g);
             g_doneCollapsed = on(10);
             break;
         }

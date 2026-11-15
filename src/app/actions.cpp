@@ -15,6 +15,13 @@
 #include "ui/main_window.h"
 
 
+// 数据变更收口：请求合并落盘 + 重建显示行（RebuildRows 内部会重绘列表）
+static void AfterMutation() {
+    RequestSave();
+    RebuildRows();
+}
+
+
 // 导出分组内全部任务为 txt：每个任务一行（按完成时间倒序，与界面显示一致）
 void ExportGroup(int grp) {
     std::vector<const Task*> items;
@@ -79,9 +86,7 @@ void DeleteTaskAt(int row) {
     int idx = g_rows[row];
     if (g_rowEditRow == row) CloseRowEditor(false);  // 正在编辑则先关编辑框
     g_tasks.erase(g_tasks.begin() + idx);
-    SaveTasks();
-    RebuildRows();
-    UpdateButtons();
+    AfterMutation();
 }
 
 void AddFromInput() {
@@ -111,13 +116,11 @@ void AddFromInput() {
     }
     g_tasks.insert(g_tasks.begin(), t);   // 新任务置顶
     g_multiSel.clear();                   // v0.16：下标整体 +1，多选失效
-    SaveTasks();
-    RebuildRows();
+    AfterMutation();
     g_selRow = -1;                        // 默认不选中
     g_anchorRow = -1;                     // v0.16：锚点一并重置
     SetWindowTextW(g_input, L"");
     SetFocus(g_input);
-    UpdateButtons();
     UpdateInputSize();                    // 输入框回落到单行高度
     CheckReminders();                     // 新任务若已进入提醒窗口则立即提示
 }
@@ -126,7 +129,7 @@ void ToggleTask(int row) {
     if (row < 0 || row >= (int)g_rows.size()) return;
     int idx = g_rows[row];
     if (idx == ROW_FILL) return;             // v1.10.0 填塞行无操作
-    if (idx < 0) { ToggleGroup(-1 - idx); return; }
+    if (idx < 0) { ToggleGroup(GroupOfRow(idx)); return; }
     g_tasks[(size_t)idx].done = !g_tasks[(size_t)idx].done;
     if (g_tasks[(size_t)idx].done) {
         g_tasks[(size_t)idx].doneAt = (long long)time(nullptr);
@@ -139,20 +142,16 @@ void ToggleTask(int row) {
         g_tasks.erase(g_tasks.begin() + idx);
         g_tasks.insert(g_tasks.begin(), t);
         g_multiSel.clear();               // v0.16：下标整体 +1，多选失效
-        RebuildRows();
+        AfterMutation();
         g_selRow = 0;
         ListEnsureVisible(0);
-        SaveTasks();
-        UpdateButtons();
         return;
     }
-    SaveTasks();
-    RebuildRows();
+    AfterMutation();
     // 选中它在新分组中的行
     g_selRow = RowOfIdx(idx);
     if (g_selRow >= 0) ListEnsureVisible(g_selRow);
     ListRepaint();
-    UpdateButtons();
 }
 
 // v0.16：批量完成 / 还原所选任务（还原的任务移回待办区顶部，保持原相对顺序）
@@ -188,10 +187,7 @@ void MultiSetDone(const std::vector<int>& idxs, bool done) {
     g_multiSel.clear();
     g_selRow    = -1;
     g_anchorRow = -1;
-    SaveTasks();
-    RebuildRows();
-    UpdateButtons();
-    ListRepaint();
+    AfterMutation();
 }
 
 // v0.16：批量删除所选任务
@@ -205,10 +201,7 @@ void MultiDelete(const std::vector<int>& idxs) {
     g_multiSel.clear();
     g_selRow    = -1;
     g_anchorRow = -1;
-    SaveTasks();
-    RebuildRows();
-    UpdateButtons();
-    ListRepaint();
+    AfterMutation();
 }
 
 // v2.3.2：删除所选（Delete 键与右键菜单共用；多选时批量删除）
@@ -222,16 +215,12 @@ void DeleteSelected() {
     if (g_rowEditRow == g_selRow) CloseRowEditor(false);   // 正在编辑则先关编辑框
     g_tasks.erase(g_tasks.begin() + idx);
     g_anchorRow = -1;
-    SaveTasks();
-    RebuildRows();
-    UpdateButtons();
+    AfterMutation();
 }
 
 void ClearDone() {
     for (int i = (int)g_tasks.size() - 1; i >= 0; --i) {
         if (g_tasks[(size_t)i].done) g_tasks.erase(g_tasks.begin() + i);
     }
-    SaveTasks();
-    RebuildRows();
-    UpdateButtons();
+    AfterMutation();
 }

@@ -131,7 +131,7 @@ if(MSVC)
   # 不要再传 /c 65001：cmcldeps 会把 65001 当成源文件。
   # 清单走 /MANIFESTINPUT，避免与 .rc 里的 RT_MANIFEST 重复（CVT1100）。
 else()
-  # mingw-w64：windres 不带 --codepage=65001 时版本信息里的中文会乱码
+  # mingw-w64：告警全开，把「看似能用其实有坑」的代码挡在构建期
   target_compile_options(Tickly PRIVATE -Wall -Wextra -Wno-unused-parameter
     -Wno-cast-function-type -Wno-missing-field-initializers)
   # -municode：wWinMain 入口；-mwindows：GUI 子系统；-static：单文件无需运行时 DLL
@@ -139,10 +139,12 @@ else()
   #         DPI 清单冲突（multiple non-default manifests）
   target_link_options(Tickly PRIVATE -municode -mwindows -static
     "-specs=${CMAKE_CURRENT_SOURCE_DIR}/cmake/mingw64.specs")
-  # 代码页由 .rc 文件自己的 #pragma code_page(65001) 声明，不再传 --codepage：
-  # 那是 windres 专有参数。LLVM 在 PATH 时 CMake 会选中 llvm-rc，它不认
-  # #pragma、要用 /C 指定输入代码页，否则 VERSIONINFO 里的中文直接解析失败。
-  if(CMAKE_RC_COMPILER MATCHES "llvm-rc")
-    string(APPEND CMAKE_RC_FLAGS " /C65001")
-  endif()
+endif()
+
+# llvm-rc（clang-cl 工具链的默认 RC）既不认 .rc 里的 #pragma code_page，
+# 也不认 --codepage，只能用 /C 指定输入代码页；否则 VERSIONINFO 里的中文
+# 会报 "Non-ASCII 8-bit codepoint can't be interpreted in the current codepage"。
+# 这段必须放在 MSVC/非 MSVC 分支之外：clang-cl 也走 MSVC 分支。
+if(CMAKE_RC_COMPILER MATCHES "llvm-rc")
+  string(APPEND CMAKE_RC_FLAGS " /C65001")
 endif()

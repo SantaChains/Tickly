@@ -125,7 +125,6 @@ int APIENTRY wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR lpCmdLine, int nCmdShow)
     ApplyTheme();                        // v0.27：按加载的主题模式应用色板/DWM
     ApplyFontSettings();                 // v1.13.0：按加载的字体设置重建字体
     RefreshList();
-    UpdateButtons();
     ApplyHotkeys();                      // v1.12.0：注册全局快捷键（Alt+Q / Alt+1）
 
     UINT showCmd = (nCmdShow == SW_SHOWMINIMIZED || nCmdShow == SW_SHOWMINNOACTIVE)

@@ -22,9 +22,36 @@
 #include "ui/tray.h"
 
 
-// v1.13.12：底部按钮与状态行已移除，选中态变化不再需要刷新任何外部控件
-//（完成/删除改由勾选框与右键菜单承担，二者都在列表内部自绘）
-void UpdateButtons() {}
+// ---------------------------- 合并落盘 --------------------------------------
+// 连续操作（勾选一批、连续删除）不再每次全量重写 tasks.txt：
+// 变更只置脏并重置一个 300ms 的一次性定时器，最后一笔操作后统一写盘。
+// 退出/关机/拖动结束走 FlushSave 立即写，异常退出最多丢最近 300ms 的改动。
+static bool s_saveDirty = false;
+
+// 写盘前把当前窗口位置同步到 g_wp*，store 只负责序列化，不碰窗口句柄
+static void CaptureWindowPlacement() {
+    if (!g_hwnd) return;
+    WINDOWPLACEMENT wp { sizeof(wp) };
+    if (!GetWindowPlacement(g_hwnd, &wp)) return;
+    g_wpRect  = wp.rcNormalPosition;
+    g_wpMax   = wp.showCmd == SW_SHOWMAXIMIZED;
+    g_wpSaved = true;
+}
+
+void RequestSave() {
+    CaptureWindowPlacement();
+    s_saveDirty = true;
+    if (g_hwnd) SetTimer(g_hwnd, 6, 300, nullptr);   // 同 ID 重调 = 重新计时
+    else FlushSave();
+}
+
+void FlushSave() {
+    if (g_hwnd) KillTimer(g_hwnd, 6);
+    if (!s_saveDirty) return;
+    s_saveDirty = false;
+    CaptureWindowPlacement();
+    SaveTasks();
+}
 
 // ---------------------------- 布局 ------------------------------------------
 void Layout() {
@@ -204,11 +231,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
     case WM_EXITSIZEMOVE:                // 拖动/缩放结束 -> 立即保存窗口位置大小
         if (g_wpTimer) { KillTimer(hwnd, 2); g_wpTimer = 0; }
-        SaveTasks();                     //（关机/重启/强杀时 WM_DESTROY 不会执行，
-        return 0;                        //  仅靠退出时保存会丢失最后一次调整）
+        RequestSave();                   //（关机/重启/强杀时 WM_DESTROY 不会执行，
+        FlushSave();                     //  仅靠退出时保存会丢失最后一次调整）
+        return 0;
 
     case WM_ENDSESSION:                  // Windows 关机/重启 -> 尽快落盘一次
-        if (wParam) SaveTasks();
+        if (wParam) { RequestSave(); FlushSave(); }
         return 0;
 
     case WM_SETFOCUS:
@@ -436,7 +464,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         } else if (wParam == 2) {        // 延时落盘窗口尺寸（贴靠/最大化等）
             KillTimer(hwnd, 2);
             g_wpTimer = 0;
-            SaveTasks();
+            RequestSave();
+        } else if (wParam == 6) {        // 合并落盘到期：把累积的变更写一次盘
+            FlushSave();
         } else if (wParam == 3) {        // 托盘图标提升重试（子键异步建立）
             KillTimer(hwnd, 3);
             ApplyTrayPromotion(hwnd);    // 成功或重试耗尽后自动停表
@@ -589,7 +619,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         UnregisterHotKey(hwnd, HK_ID_SHOW);   // v1.12.0 全局快捷键
         UnregisterHotKey(hwnd, HK_ID_CAP);
         if (g_hwndToast) DestroyWindow(g_hwndToast);
-        SaveTasks();
+        FlushSave();
         if (g_fontTitle)   DeleteObject(g_fontTitle);
         if (g_fontSub)     DeleteObject(g_fontSub);
         if (g_fontGroup)   DeleteObject(g_fontGroup);

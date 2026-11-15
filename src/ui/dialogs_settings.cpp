@@ -12,6 +12,7 @@
 #include "app/store.h"
 #include "ui/theme.h"
 #include "ui/tray.h"
+#include "ui/main_window.h"
 #include "app/version.h"
 
 
@@ -329,7 +330,7 @@ static INT_PTR CALLBACK SettingsDlgProc(HWND h, UINT m, WPARAM w, LPARAM lParam)
             ApplyTheme();                    // 界面立即生效
             // v2.3：主题色变了，整框重绘 —— 静态文本与自绘复选/单选都要换色
             InvalidateRect(h, nullptr, TRUE);
-            SaveTasks();                     // 触发一次设置保存（F 行）
+            RequestSave();                     // 触发一次设置保存（F 行）
             return TRUE;
         }
         if (LOWORD(w) == IDOK) {
@@ -360,7 +361,7 @@ static INT_PTR CALLBACK SettingsDlgProc(HWND h, UINT m, WPARAM w, LPARAM lParam)
             if (vk1) { g_hkShowVk = vk1; g_hkShowMod = MOD_ALT; }
             if (vk2) { g_hkCapVk  = vk2; g_hkCapMod  = MOD_ALT; }
             ApplyHotkeys();
-            SaveTasks();
+            RequestSave();
             EndDialog(h, IDOK);
             CheckReminders();            // 设置可能变化，立即复查
             return TRUE;

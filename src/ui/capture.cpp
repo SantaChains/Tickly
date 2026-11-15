@@ -313,9 +313,8 @@ void CaptureSelectedToTask() {
             t.hasTime = ctx.hasTime;
             g_tasks.insert(g_tasks.begin(), t);   // 新任务置顶
             g_multiSel.clear();                   // 下标整体 +1，多选失效
-            SaveTasks();
+            RequestSave();
             RebuildRows();
-            UpdateButtons();
             CheckReminders();
             MessageBeep(MB_OK);
             // v0.20：气泡展示确认框内（可能被修改过的）日期时间
@@ -333,9 +332,8 @@ void CaptureSelectedToTask() {
     t.text = text;   // 所选即所得：无日期时间表达时不改动内容
     g_tasks.insert(g_tasks.begin(), t);   // 新任务置顶
     g_multiSel.clear();                   // 下标整体 +1，多选失效
-    SaveTasks();
+    RequestSave();
     RebuildRows();
-    UpdateButtons();
     CheckReminders();
     std::wstring body = (text.size() > 80) ? text.substr(0, 80) + L"…" : text;
     MessageBeep(MB_OK);

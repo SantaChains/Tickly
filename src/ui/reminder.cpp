@@ -100,9 +100,8 @@ static INT_PTR CALLBACK ReminderDlgProc(HWND h, UINT m, WPARAM w, LPARAM) {
                 }
             }
             g_remindItems.clear();
-            SaveTasks();
+            RequestSave();
             RebuildRows();
-            UpdateButtons();
             EndDialog(h, IDC_REMIND_DONE);
             return TRUE;
         }
@@ -141,7 +140,7 @@ void CheckReminders() {
         msg += L"· " + txt + L"\r\n    " + when + L"（" + RelTime(t.due, now)
              + L"）";
     }
-    SaveTasks();
+    RequestSave();
     g_remindOpen = true;
     MessageBeep(MB_ICONEXCLAMATION);
     int textH = (int)cand.size() * 26 + 6;   // 每条 2 行（按大号加粗字体计高）

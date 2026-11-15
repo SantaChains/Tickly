@@ -96,9 +96,8 @@ static INT_PTR CALLBACK DateDlgProc(HWND h, UINT m, WPARAM w, LPARAM lp) {
                     t.due = 0;
                     t.hasTime = false;
                 }
-                SaveTasks();
+                RequestSave();
                 RebuildRows();
-                UpdateButtons();
                 CheckReminders();         // 新时间若已进入提醒窗口则提示
             }
             EndDialog(h, IDOK);
@@ -166,9 +165,8 @@ static INT_PTR CALLBACK DoneDateDlgProc(HWND h, UINT m, WPARAM w, LPARAM lp) {
                     int hh = hasT ? stt.wHour : old.tm_hour;
                     int mm = hasT ? stt.wMinute : old.tm_min;
                     t.doneAt = MakeEpoch(sd.wYear, sd.wMonth, sd.wDay, hh, mm);
-                    SaveTasks();
+                    RequestSave();
                     RebuildRows();
-                    UpdateButtons();
                 }
             }
             EndDialog(h, IDOK);

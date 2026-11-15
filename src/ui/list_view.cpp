@@ -403,7 +403,6 @@ void DeselectList() {
     if (g_selRow == -1 && g_multiSel.empty()) return;
     g_selRow = -1;
     g_multiSel.clear();                  // v0.16：多选一并取消
-    UpdateButtons();
     ListRepaint();
 }
 
@@ -677,13 +676,13 @@ LRESULT CALLBACK TodoListProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         }
         if (v == ROW_DONE_SUMMARY) {         // v1.13.11：已完成总标题，点击展开/收起
             g_doneCollapsed = !g_doneCollapsed;
-            SaveTasks();
+            RequestSave();
             RebuildRows();
             DeselectList();
             return 0;
         }
         if (v < 0) {                         // 分组标题：导出热区 / 折叠展开
-            int grp = -1 - v;
+            int grp = GroupOfRow(v);
             RECT ir = RowRect(row);
             if (HeaderExportHit(grp, ir, x)) { ExportGroup(grp); return 0; }
             ToggleGroup(grp);
@@ -707,7 +706,7 @@ LRESULT CALLBACK TodoListProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (chg) {
             RefreshListKeepSel();
             row = RowOfIdx(idx);
-            if (row < 0) { UpdateButtons(); return 0; }
+            if (row < 0) return 0;
             ir = RowRect(row);
             if (expandBtn && !wasExpanded) {
                 // v1.13.4：展开 -> 行顶滚到视口顶部，从第一行看起
@@ -728,7 +727,6 @@ LRESULT CALLBACK TodoListProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                 g_multiSel.clear();          // v0.16：改日期属单任务操作
                 g_anchorRow = row;
                 g_selRow = row;
-                UpdateButtons();
                 ListRepaint();
                 PostMessageW(g_hwnd, WM_OPENDATE, (WPARAM)idx, 0);
                 return 0;
@@ -758,7 +756,6 @@ LRESULT CALLBACK TodoListProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                 g_anchorRow = row;
             }
         }
-        UpdateButtons();
         ListRepaint();
         return 0;
     }
@@ -780,7 +777,6 @@ LRESULT CALLBACK TodoListProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                     POINT hit = { x, y };    // v1.13.3：把点击点交给编辑器定位光标
                     OpenRowEditor(row, hit);
                     g_selRow = row;
-                    UpdateButtons();
                     ListRepaint();
                 }
             }
@@ -885,7 +881,7 @@ LRESULT CALLBACK TodoListProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                     }
                 } else if (g_rows[k] != ROW_FILL) {   // 分组标题「↓ 导出」热区
                     RECT ir = RowRect(k);
-                    if (HeaderExportHit(-1 - g_rows[k], ir, x)) hand = true;
+                    if (HeaderExportHit(GroupOfRow(g_rows[k]), ir, x)) hand = true;
                 }
             }
         }
@@ -958,14 +954,13 @@ LRESULT CALLBACK TodoListProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             g_anchorRow = nr;                // v0.16：键盘移动重设批量选锚点
             g_multiSel.clear();              // v0.16：键盘导航回到单选
             ListEnsureVisible(nr);
-            UpdateButtons();
             ListRepaint();
         };
         switch (w) {
         case VK_SPACE: {                     // 空格 = 切换完成 / 折叠分组
             if (g_selRow >= 0 && g_selRow < cnt) {
                 if (g_rows[g_selRow] == ROW_FILL) return 0;
-                if (g_rows[g_selRow] < 0) ToggleGroup(-1 - g_rows[g_selRow]);
+                if (g_rows[g_selRow] < 0) ToggleGroup(GroupOfRow(g_rows[g_selRow]));
                 else ToggleTask(g_selRow);
             }
             return 0;
@@ -1010,7 +1005,6 @@ LRESULT CALLBACK TodoListProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                 for (int r = 0; r < cnt; ++r)
                     if (g_rows[r] >= 0) g_multiSel.push_back(g_rows[r]);
                 CloseRowEditor(true);
-                UpdateButtons();
                 ListRepaint();
                 return 0;
             }

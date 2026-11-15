@@ -56,13 +56,12 @@ void CloseRowEditor(bool save) {
             } else {
                 t.text = text;
             }
-            SaveTasks();
+            RequestSave();
             RefreshListKeepSel();   // v1.12.0：文本变了行高可能变，重建量高
         }
     }
     SetWindowLongPtrW(ed, GWLP_WNDPROC, (LONG_PTR)g_oldRowEditProc);
     DestroyWindow(ed);
-    UpdateButtons();
     // v1.13.4：无条件重建行 —— 编辑态行高是「视口满高」，Esc/未改动关闭时
     // 若不重建，g_rowTops 会一直停在编辑态高度，整行留出一大块空白
     //（此前只有「文本变了」的分支才重建）

@@ -40,11 +40,10 @@ static const int kAnchorNone = -1000000;
 void PushWrappedWord(HDC hdc, const std::wstring& word, int maxW,
                             std::wstring& cur, std::vector<std::wstring>& lines);
 
-std::vector<std::wstring> WrapTaskText(HDC hdc, const std::wstring& text,
-                                              int maxW);
+std::vector<std::wstring> WrapTaskText(HDC hdc, int idx, int maxW);
 
 // 只要行数（行高计算用：命中缓存时不拷贝结果）
-int WrapTaskLineCount(HDC hdc, const std::wstring& text, int maxW);
+int WrapTaskLineCount(HDC hdc, int idx, int maxW);
 
 int WhenLabelWidth(const Task& t);
 

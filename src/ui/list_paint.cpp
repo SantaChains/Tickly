@@ -192,7 +192,7 @@ void DrawTaskRow(HDC hdc, const RECT& rc, const Task& t, bool sel,
 
     // v1.12.1：按折行结果分流 —— 无 \n 的长文本（如划词添加的一段话）
     // 折行后超过一行时同样走多行显示、随窗口宽度自动换行
-    std::vector<std::wstring> lines = WrapTaskText(hdc, t.text,
+    std::vector<std::wstring> lines = WrapTaskText(hdc, idx,
                                                    textRight - textLeft);
     int lineH = TaskLineHeight(hdc);
     int total = (int)lines.size();

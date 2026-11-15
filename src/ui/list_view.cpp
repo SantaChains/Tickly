@@ -12,7 +12,6 @@
 #include "core/text_util.h"
 #include "ui/theme.h"
 
-#include <unordered_map>
 #include <cstdint>
 #include "core/time_util.h"
 #include "ui/main_window.h"
@@ -105,13 +104,22 @@ HDC MeasureDC() {
 namespace {
 
 struct WrapEntry {
-    int                      width  = 0;
-    int                      fontPx = 0;
+    std::uint64_t            sig = 0;   // 0 = 未缓存；非 0 = 文本+宽度+字号指纹
     std::vector<std::wstring> lines;
 };
 
-constexpr size_t kWrapCacheMax = 8192;   // 超出直接清空（正常使用远达不到）
-std::unordered_map<std::wstring, std::vector<WrapEntry>> g_wrapCache;
+// 按任务下标缓存：命中只需比一次指纹，不必对全文建哈希表键（此前以整段文本
+// 为 unordered_map 键，长文本每次查找都要拷贝 + 哈希一遍全文）
+std::vector<WrapEntry> g_wrapByTask;
+
+std::uint64_t WrapSig(const std::wstring& text, int maxW, int fontPx) {
+    std::uint64_t h = 1469598103934665603ull;          // FNV-1a 64
+    auto mix = [&h](std::uint64_t v) { h = (h ^ v) * 1099511628211ull; };
+    for (wchar_t c : text) mix((std::uint64_t)c);
+    mix((std::uint64_t)(std::uint32_t)maxW);
+    mix((std::uint64_t)(std::uint32_t)fontPx);
+    return h | 1;                                     // 保证非 0
+}
 
 std::vector<std::wstring> WrapTaskTextCompute(HDC hdc, const std::wstring& text,
                                              int maxW) {
@@ -139,30 +147,32 @@ std::vector<std::wstring> WrapTaskTextCompute(HDC hdc, const std::wstring& text,
     return lines;
 }
 // 取缓存（未命中则计算并存入）；返回的指针只在本次调用内有效
-const std::vector<std::wstring>* WrapCached(HDC hdc, const std::wstring& text, int maxW) {
+const std::vector<std::wstring>* WrapCached(HDC hdc, int idx, int maxW) {
     if (maxW < Scale(20)) maxW = Scale(20);
-    const int fp = TaskLineHeight(hdc);
-    if (g_wrapCache.size() > kWrapCacheMax) g_wrapCache.clear();
-    std::vector<WrapEntry>& bucket = g_wrapCache[text];
-    for (const WrapEntry& e : bucket)
-        if (e.width == maxW && e.fontPx == fp) return &e.lines;
-    WrapEntry entry;
-    entry.width  = maxW;
-    entry.fontPx = fp;
-    entry.lines  = WrapTaskTextCompute(hdc, text, maxW);
-    bucket.push_back(std::move(entry));
-    return &bucket.back().lines;
+    if (idx < 0 || idx >= (int)g_tasks.size()) return nullptr;
+    if (g_wrapByTask.size() != g_tasks.size())
+        g_wrapByTask.assign(g_tasks.size(), WrapEntry{});
+    // 文本改动后签名随之变化，同签名必然同折行结果
+    const std::wstring& text = g_tasks[(size_t)idx].text;
+    WrapEntry& e = g_wrapByTask[(size_t)idx];
+    const std::uint64_t sig = WrapSig(text, maxW, TaskLineHeight(hdc));
+    if (e.sig != sig) {
+        e.lines = WrapTaskTextCompute(hdc, text, maxW);
+        e.sig   = sig;
+    }
+    return &e.lines;
 }
 
 }  // namespace
 
-std::vector<std::wstring> WrapTaskText(HDC hdc, const std::wstring& text,
-                                      int maxW) {
-    return *WrapCached(hdc, text, maxW);
+std::vector<std::wstring> WrapTaskText(HDC hdc, int idx, int maxW) {
+    const std::vector<std::wstring>* ls = WrapCached(hdc, idx, maxW);
+    return ls ? *ls : std::vector<std::wstring> { L"" };
 }
 
-int WrapTaskLineCount(HDC hdc, const std::wstring& text, int maxW) {
-    return (int)WrapCached(hdc, text, maxW)->size();
+int WrapTaskLineCount(HDC hdc, int idx, int maxW) {
+    const std::vector<std::wstring>* ls = WrapCached(hdc, idx, maxW);
+    return ls ? (int)ls->size() : 1;
 }
 
 // 日期标签宽度（行高计算与 DrawTaskRow 用同一公式，保证几何一致）
@@ -241,7 +251,7 @@ static int TaskRowHeightCompute(const Task& t, int idx, int listW) {
     HDC hdc = MeasureDC();
     HGDIOBJ of = SelectObject(hdc, t.done ? g_fontDone : g_font);
     int lineH = TaskLineHeight(hdc);
-    int total = WrapTaskLineCount(hdc, t.text, textRight - textLeft);
+    int total = WrapTaskLineCount(hdc, idx, textRight - textLeft);
     SelectObject(hdc, of);
     // v1.13.5：编辑态不再单独算高度 —— 双击即展开，编辑框只是盖在「展开态」
     // 文字上的一层，进出编辑行高逐像素相同（用户要求：编辑状态与展开选中
@@ -500,7 +510,7 @@ static bool ExpandBtnHit(int idx, const RECT& ir, int x, int y) {
     HDC hdc = GetDC(g_list);
     HGDIOBJ of = SelectObject(hdc, t.done ? g_fontDone : g_font);
     // v1.12.1：按钮存在性按折行结果判定（无 \n 的长文本折行超 5 行同样展开/收起）
-    std::vector<std::wstring> lines = WrapTaskText(hdc, t.text,
+    std::vector<std::wstring> lines = WrapTaskText(hdc, idx,
                                                    textRight - (ir.left + Scale(12) + Scale(18) + Scale(12)));
     if ((int)lines.size() <= kTaskMaxLines) {
         SelectObject(hdc, of);

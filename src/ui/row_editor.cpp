@@ -577,7 +577,7 @@ void OpenRowEditor(int row, POINT clickPt) {
     // 折行超过 5 行且当前折叠时，先展开任务再取行矩形（编辑框盖住全部行）
     HDC hdc = GetDC(g_list);
     HGDIOBJ of = SelectObject(hdc, t.done ? g_fontDone : g_font);
-    std::vector<std::wstring> lines = WrapTaskText(hdc, t.text, right - left);
+    std::vector<std::wstring> lines = WrapTaskText(hdc, idx, right - left);
     SelectObject(hdc, of);
     ReleaseDC(g_list, hdc);
     int total = (int)lines.size();

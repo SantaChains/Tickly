@@ -337,6 +337,7 @@ void LoadTasks() {
 
     int  fileVer = 0;          // V 行声明的格式版本
     bool escapeText = false;   // 文本是否按 \\n / \\\\ 转义
+    bool recognized = false;   // 是否至少认出一行合法记录（损坏检测用）
     const size_t est = data.size() / 48 + 1;
     g_tasks.reserve(est < 4096 ? est : 4096);
 
@@ -354,16 +355,19 @@ void LoadTasks() {
         switch (w[0]) {
         case L'V': {                                   // 版本行（v4+）
             if (w[1] != L'\t') break;
+            recognized = true;
             fileVer = (int)ToInt(std::wstring_view(w).substr(2), 0);
             break;
         }
         case L'E': {                                   // 转义标记（v1.12.0+）
             if (w[1] != L'\t') break;
+            recognized = true;
             escapeText = true;
             break;
         }
         case L'S': {
             if (w[1] != L'\t') break;
+            recognized = true;
             const std::vector<std::wstring_view> f = SplitViews(w, 2);
             auto on = [&](size_t i) { return i >= f.size() || ToBool(f[i]); };
             for (int g = 0; g < 10; ++g) g_groupOpen[g] = on((size_t)g);
@@ -372,6 +376,7 @@ void LoadTasks() {
         }
         case L'W': {
             if (w[1] != L'\t') break;
+            recognized = true;
             const std::vector<std::wstring_view> f = SplitViews(w, 2);
             if (f.size() < 5) break;
             RECT r {};
@@ -388,6 +393,7 @@ void LoadTasks() {
         }
         case L'F': {
             if (w[1] != L'\t') break;
+            recognized = true;
             const std::vector<std::wstring_view> f = SplitViews(w, 2);
             auto col = [&](size_t ir, size_t ig, size_t ib, COLORREF def) -> COLORREF {
                 if (f.size() <= ib) return def;
@@ -419,6 +425,7 @@ void LoadTasks() {
         }
         case L'C': {
             if (w[1] != L'\t') break;
+            recognized = true;
             const std::vector<std::wstring_view> f = SplitViews(w, 2);
             if (f.size() >= 1) g_remindOn = ToBool(f[0]);
             if (f.size() >= 2) {
@@ -436,6 +443,7 @@ void LoadTasks() {
         }
         case L'T': {
             if (w[1] != L'\t') break;
+            recognized = true;
             const std::vector<std::wstring_view> f = SplitViews(w, 2);
             Task t;
             if (f.size() >= 6) {
@@ -464,6 +472,7 @@ void LoadTasks() {
         default: {
             // v1 兼容：`0<TAB>text` / `1<TAB>text`
             if (w.size() > 1 && w[1] == L'\t' && (w[0] == L'0' || w[0] == L'1')) {
+                recognized = true;
                 Task t;
                 t.done = (w[0] == L'1');
                 t.text = NormalizeMultiline(std::wstring(w).substr(2));
@@ -477,4 +486,18 @@ void LoadTasks() {
     // 未来版本的文件：字段仍然按已知规则解析，写回时保留一份 .bak，
     // 因此降级不会直接毁掉数据（由 WriteFileBytesAtomic 完成备份）
     (void)fileVer;
+
+    // 损坏保护：文件有内容却一行都认不出来（编码被破坏、被别的程序写坏、
+    // 或者根本不是本程序的文件）。若就这么以空列表启动，下一次保存会把
+    // 原文件覆盖成只剩设置行 —— 数据就真没了。这里改名留证并提示一次。
+    if (!recognized && data.find_first_not_of(" \t\r\n") != std::string::npos) {
+        const std::wstring path = ResolveDataPath();
+        const std::wstring bad  = path + L".bad";
+        MoveFileExW(path.c_str(), bad.c_str(), MOVEFILE_REPLACE_EXISTING);
+        const std::wstring msg =
+            L"数据文件无法解析，已改名保留：\n" + bad +
+            L"\n\nTickly 将以空列表启动；修复该文件后可以改回 tasks.txt 再用。";
+        MessageBoxW(g_hwnd, msg.c_str(), L"Tickly 数据文件损坏",
+                    MB_ICONWARNING | MB_OK);
+    }
 }

@@ -107,7 +107,6 @@ static LRESULT CALLBACK SearchProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     if (m == WM_KEYDOWN) {
         if (w == VK_ESCAPE)                     { ToggleSearch(); return 0; }
         if (w == VK_RETURN)                     { SetFocus(g_list); return 0; }
-        if (w == 'F' && (GetKeyState(VK_CONTROL) & 0x8000)) { ToggleSearch(); return 0; }
     }
     LRESULT r = CallWindowProcW(s_oldSearchProc, h, m, w, l);
     if (m == WM_PAINT) PaintSearchPlaceholder(h);

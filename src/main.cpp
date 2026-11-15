@@ -13,7 +13,33 @@
 #include "ui/toast.h"
 #include "ui/main_window.h"
 #include "ui/autostart.h"
+#include "app/actions.h"
 #include "app/ids.h"
+
+
+// v2.3.4：全局加速键 —— Ctrl+F 开关搜索、Ctrl+Z 撤销删除。
+// 此前只在列表窗口 / 输入框 / 搜索框里各写一份，焦点落到别处（比如设置对话框
+// 关闭后的空闲焦点、滚动条）就失效；这里在消息循环统一拦一次，主窗口及其
+// 子窗口内的按键都走同一入口。输入框内的 Ctrl+Z 是文本撤销，交回 EDIT。
+static bool HandleGlobalAccel(const MSG& msg) {
+    if (msg.message != WM_KEYDOWN) return false;
+    if (!(GetKeyState(VK_CONTROL) & 0x8000)) return false;
+    if (!g_hwnd || !msg.hwnd || GetAncestor(msg.hwnd, GA_ROOT) != g_hwnd) return false;
+    wchar_t cls[16] {};
+    GetClassNameW(GetFocus(), cls, 16);
+    const bool inEdit = (_wcsicmp(cls, L"Edit") == 0);
+    switch (msg.wParam) {
+    case 'F':
+        ToggleSearch();
+        return true;
+    case 'Z':
+        if (inEdit) return false;
+        CloseRowEditor(true);
+        UndoLast();
+        return true;
+    }
+    return false;
+}
 
 
 // ---------------------------- 入口 ------------------------------------------
@@ -158,6 +184,7 @@ int APIENTRY wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR lpCmdLine, int nCmdShow)
 
     MSG msg;
     while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
+        if (HandleGlobalAccel(msg)) continue;
         if (!g_rowEdit && IsDialogMessageW(g_hwnd, &msg)) continue;
         TranslateMessage(&msg);
         DispatchMessageW(&msg);

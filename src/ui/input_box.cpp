@@ -194,10 +194,6 @@ LRESULT CALLBACK EditProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             if (b1 == (DWORD)lenNow) return 0;    // 拒绝复位，保住末尾插入点
         }
     }
-    if (m == WM_KEYDOWN && w == 'F' && (GetKeyState(VK_CONTROL) & 0x8000)) {
-        ToggleSearch();                  // v2.3.3：输入任务时也能直接开搜索
-        return 0;
-    }
     if (m == WM_CHAR && (w == L'\r' || w == L'\n')) {
         // v0.16：Shift+Enter = 在输入框内换行（多行 EDIT 默认过程插入换行），
         // Enter = 添加任务

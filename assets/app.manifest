@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
 
-  <assemblyIdentity type="win32" name="Tickly.App" version="2.3.3.0"
+  <assemblyIdentity type="win32" name="Tickly.App" version="2.3.4.0"
                     processorArchitecture="*"/>
 
   <!-- 视觉样式（comctl32 v6）：没有这段时，复选框/单选钮画的是固定 13px 的

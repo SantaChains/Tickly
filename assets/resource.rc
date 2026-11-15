@@ -26,8 +26,8 @@
 1 ICON "app.ico"
 
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION     2,3,3,0
-PRODUCTVERSION  2,3,3,0
+FILEVERSION     2,3,4,0
+PRODUCTVERSION  2,3,4,0
 FILEFLAGSMASK   0x3fL
 FILEFLAGS       0x0L
 FILEOS          VOS_NT_WINDOWS32
@@ -40,9 +40,9 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "Tickly"
             VALUE "FileDescription",  "Tickly待办"
-            VALUE "FileVersion",      "2.3.3"
+            VALUE "FileVersion",      "2.3.4"
             VALUE "ProductName",      "Tickly"
-            VALUE "ProductVersion",   "2.3.3"
+            VALUE "ProductVersion",   "2.3.4"
         END
     END
     BLOCK "VarFileInfo"
